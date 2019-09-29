@@ -278,8 +278,8 @@ if petsc.nversion > slepc.nversion:
   log.Println('\nWARNING: PETSc version '+petsc.version+' is newer than SLEPc version '+slepc.version)
 if slepc.release=='1' and not petsc.release=='1':
   log.Exit('ERROR: a release version of SLEPc requires a release version of PETSc, not a development version')
-if slepc.release=='0' and petsc.release=='1':
-  log.Exit('ERROR: a development version of SLEPc cannot be built with a release version of PETSc')
+#if slepc.release=='0' and petsc.release=='1':
+#  log.Exit('ERROR: a development version of SLEPc cannot be built with a release version of PETSc')
 if petsc.isinstall:
   if os.path.realpath(petsc.prefixdir) != os.path.realpath(petsc.dir):
     log.Println('\nWARNING: PETSC_DIR does not point to PETSc installation path')
