@@ -21,7 +21,7 @@ spkgs := sys,eps,svd,pep,nep,mfn,lme
 
 slepcconf      := $(SLEPC_DIR)/$(PETSC_ARCH)/include/slepcconf.h
 slepcvariables := $(SLEPC_DIR)/$(PETSC_ARCH)/lib/slepc/conf/slepcvariables
-generatedtest  := $(TESTDIR)/testfiles
+generatedtest  := $(TESTDIR)/slepctestfiles
 
 .SECONDEXPANSION:		# to expand $$(@D)/.DIR
 
