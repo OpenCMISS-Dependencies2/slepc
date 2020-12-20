@@ -440,6 +440,13 @@ Before use - please copy/install over to specified prefix: %s
     self.runcopy()
     self.runfix()
     self.rundone()
+    try:
+      with open(os.path.join('lib','slepc','conf','slepcvariables'), 'w') as g:
+        g.write('PETSC_ARCH=""\n')
+        g.write('SLEPC_DIR='+self.destDir+'\n')
+        g.write('include $(SLEPC_DIR)/lib/slepc/conf/slepcvariables\n')
+    except:
+      pass
     return
 
 if __name__ == '__main__':
