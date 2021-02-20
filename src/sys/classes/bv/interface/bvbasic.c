@@ -1886,7 +1886,7 @@ PetscErrorCode BVGetSplit(BV bv,BV *L,BV *R)
   PetscValidHeaderSpecific(bv,BV_CLASSID,1);
   PetscValidType(bv,1);
   BVCheckSizes(bv,1);
-  if (!bv->l) SETERRQ(PetscObjectComm((PetscObject)bv),PETSC_ERR_ARG_WRONGSTATE,"Must indicate the number of leading columns with BVSetActiveColumns()");
+  if (!(bv->nc+bv->l)) SETERRQ(PetscObjectComm((PetscObject)bv),PETSC_ERR_ARG_WRONGSTATE,"Must indicate the number of leading columns with BVSetActiveColumns()");
   if (bv->lsplit) SETERRQ(PetscObjectComm((PetscObject)bv),PETSC_ERR_ARG_WRONGSTATE,"Cannot get the split BV's twice before restoring them with BVRestoreSplit()");
   bv->lsplit = bv->nc+bv->l;
   ierr = BVGetSplit_Private(bv,PETSC_TRUE,&bv->L);CHKERRQ(ierr);
