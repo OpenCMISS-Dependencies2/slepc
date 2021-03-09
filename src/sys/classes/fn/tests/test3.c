@@ -154,7 +154,7 @@ int main(int argc,char **argv)
 /*TEST
 
    testset:
-      filter: grep -v "computing matrix functions"
+      filter: grep -v "computing matrix functions" | sed -e "s/20.5783/20.5782/"
       output_file: output/test3_1.out
       test:
          suffix: 1

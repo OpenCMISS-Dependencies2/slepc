@@ -192,5 +192,6 @@
 !      suffix: 1
 !      args: -pep_nev 4 -pep_ncv 19 -terse
 !      requires: !complex
+!      filter: sed -e "s/1.65362i/1.65363i/"
 !
 !TEST*/

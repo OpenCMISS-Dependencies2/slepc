@@ -125,7 +125,7 @@ int main(int argc,char **argv)
 
    testset:
       args: -n 12 -ds_method {{0 1 2}}
-      filter: grep -v "solving the problem" | sed -e "s/extrarow//"
+      filter: grep -v "solving the problem" | sed -e "s/extrarow//" | sed -e "s/0.34761i/0.34760i/"
       output_file: output/test2_1.out
       requires: !single
       test:
