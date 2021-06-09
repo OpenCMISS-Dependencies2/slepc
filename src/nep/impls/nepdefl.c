@@ -80,7 +80,8 @@ PetscErrorCode NEPDeflationExtractEigenpair(NEP_EXT_OP extop,PetscInt k,Vec u,Pe
 PetscErrorCode NEPDeflationCopyToExtendedVec(NEP_EXT_OP extop,Vec v,PetscScalar *a,Vec vex,PetscBool back)
 {
   PetscErrorCode ierr;
-  PetscMPIInt    np,rk,count;
+  PetscMPIInt    np,rk;
+  PetscMPICount  count;
   PetscScalar    *array1,*array2;
   PetscInt       nloc;
 
@@ -104,11 +105,11 @@ PetscErrorCode NEPDeflationCopyToExtendedVec(NEP_EXT_OP extop,Vec v,PetscScalar 
       ierr = VecGetArray(vex,&array2);CHKERRQ(ierr);
       if (back) {
         ierr = PetscArraycpy(a,array2+nloc,extop->szd);CHKERRQ(ierr);
-        ierr = PetscMPIIntCast(extop->szd,&count);CHKERRQ(ierr);
+        ierr = PetscMPICountCast(extop->szd,&count);CHKERRQ(ierr);
         ierr = MPI_Bcast(a,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)vex));CHKERRMPI(ierr);
       } else {
         ierr = PetscArraycpy(array2+nloc,a,extop->szd);CHKERRQ(ierr);
-        ierr = PetscMPIIntCast(extop->szd,&count);CHKERRQ(ierr);
+        ierr = PetscMPICountCast(extop->szd,&count);CHKERRQ(ierr);
         ierr = MPI_Bcast(array2+nloc,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)vex));CHKERRMPI(ierr);
       }
       ierr = VecRestoreArray(vex,&array2);CHKERRQ(ierr);
@@ -177,7 +178,8 @@ PetscErrorCode NEPDeflationSetRandomVec(NEP_EXT_OP extop,Vec v)
   PetscInt       n,next,i;
   PetscRandom    rand;
   PetscScalar    *array;
-  PetscMPIInt    nn,np;
+  PetscMPIInt    np;
+  PetscMPICount  nn;
 
   PetscFunctionBegin;
   ierr = BVGetRandomContext(extop->nep->V,&rand);CHKERRQ(ierr);
@@ -189,7 +191,7 @@ PetscErrorCode NEPDeflationSetRandomVec(NEP_EXT_OP extop,Vec v)
     ierr = VecGetArray(v,&array);CHKERRQ(ierr);
     for (i=n+extop->n;i<next;i++) array[i] = 0.0;
     for (i=n;i<n+extop->n;i++) array[i] /= PetscSqrtReal(np);
-    ierr = PetscMPIIntCast(extop->n,&nn);CHKERRQ(ierr);
+    ierr = PetscMPICountCast(extop->n,&nn);CHKERRQ(ierr);
     ierr = MPI_Bcast(array+n,nn,MPIU_SCALAR,0,PetscObjectComm((PetscObject)v));CHKERRMPI(ierr);
     ierr = VecRestoreArray(v,&array);CHKERRQ(ierr);
   }
@@ -632,7 +634,8 @@ PetscErrorCode NEPDeflationFunctionSolve(NEP_EXT_OP extop,Vec b,Vec x)
   NEP_DEF_FUN_SOLVE solve=extop->solve;
   PetscBLASInt      one=1,szd_,n_,ldh_;
   PetscInt          nloc,i;
-  PetscMPIInt       np,count;
+  PetscMPIInt       np;
+  PetscMPICount     count;
 
   PetscFunctionBegin;
   if (extop->ref) {
@@ -672,7 +675,7 @@ PetscErrorCode NEPDeflationFunctionSolve(NEP_EXT_OP extop,Vec b,Vec x)
       ierr = BVMultVec(solve->T_1U,-1.0,1.0,x1,x2);CHKERRQ(ierr);
     }
     for (i=0;i<extop->n;i++) xx[i+nloc] = x2[i]/PetscSqrtReal(np);
-    ierr = PetscMPIIntCast(extop->n,&count);CHKERRQ(ierr);
+    ierr = PetscMPICountCast(extop->n,&count);CHKERRQ(ierr);
     ierr = MPI_Bcast(xx+nloc,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)b));CHKERRMPI(ierr);
   }
   if (extop->szd) {

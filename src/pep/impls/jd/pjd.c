@@ -466,7 +466,8 @@ static PetscErrorCode PCShellApply_PEPJD(PC pc,Vec x,Vec y)
 static PetscErrorCode PEPJDCopyToExtendedVec(PEP pep,Vec v,PetscScalar *a,PetscInt na,PetscInt off,Vec vex,PetscBool back)
 {
   PetscErrorCode ierr;
-  PetscMPIInt    np,rk,count;
+  PetscMPIInt    np,rk;
+  PetscMPICount  count;
   PetscScalar    *array1,*array2;
   PetscInt       nloc;
 
@@ -489,11 +490,11 @@ static PetscErrorCode PEPJDCopyToExtendedVec(PEP pep,Vec v,PetscScalar *a,PetscI
     ierr = VecGetArray(vex,&array2);CHKERRQ(ierr);
     if (back) {
       ierr = PetscArraycpy(a,array2+nloc+off,na);CHKERRQ(ierr);
-      ierr = PetscMPIIntCast(na,&count);CHKERRQ(ierr);
+      ierr = PetscMPICountCast(na,&count);CHKERRQ(ierr);
       ierr = MPI_Bcast(a,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)pep));CHKERRMPI(ierr);
     } else {
       ierr = PetscArraycpy(array2+nloc+off,a,na);CHKERRQ(ierr);
-      ierr = PetscMPIIntCast(na,&count);CHKERRQ(ierr);
+      ierr = PetscMPICountCast(na,&count);CHKERRQ(ierr);
       ierr = MPI_Bcast(array2+nloc+off,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)pep));CHKERRMPI(ierr);
     }
     ierr = VecRestoreArray(vex,&array2);CHKERRQ(ierr);
@@ -549,7 +550,8 @@ static PetscErrorCode PEPJDComputeResidual(PEP pep,PetscBool derivative,PetscInt
 {
   PEP_JD         *pjd = (PEP_JD*)pep->data;
   PetscErrorCode ierr;
-  PetscMPIInt    rk,np,count;
+  PetscMPIInt    rk,np;
+  PetscMPICount  count;
   Vec            tu,tp,w;
   PetscScalar    *dval,*dvali,*array1,*array2,*x2=NULL,*y2,*qj=NULL,*tt=NULL,*xx=NULL,*xxi=NULL,sone=1.0;
   PetscInt       i,j,nconv,nloc;
@@ -675,7 +677,7 @@ static PetscErrorCode PEPJDComputeResidual(PEP pep,PetscBool derivative,PetscInt
       }
 #endif
     }
-    ierr = PetscMPIIntCast(nconv,&count);CHKERRQ(ierr);
+    ierr = PetscMPICountCast(nconv,&count);CHKERRQ(ierr);
     ierr = MPI_Bcast(array2+nloc,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)pep));CHKERRMPI(ierr);
 #if !defined(PETSC_USE_COMPLEX)
     if (sz==2) {
@@ -1288,7 +1290,8 @@ PetscErrorCode PEPSolve_JD(PEP pep)
   PetscErrorCode  ierr;
   PEP_JD          *pjd = (PEP_JD*)pep->data;
   PetscInt        k,nv,nvc,ld,minv,dim,bupdated=0,sz=1,kspsf=1,idx,off,maxits,nloc;
-  PetscMPIInt     np,count;
+  PetscMPIInt     np;
+  PetscMPICount   count;
   PetscScalar     theta[2]={0.0,0.0},ritz[2]={0.0,0.0},*pX,*eig,*eigi,*array;
   PetscReal       norm,*res,tol=0.0,rtol,abstol, dtol;
   PetscBool       lindep,ini=PETSC_TRUE;
@@ -1473,7 +1476,7 @@ PetscErrorCode PEPSolve_JD(PEP pep)
         ierr = VecDestroy(&tc);CHKERRQ(ierr);
         ierr = VecDestroy(&rc);CHKERRQ(ierr);
         ierr = VecGetArray(t[0],&array);CHKERRQ(ierr);
-        ierr = PetscMPIIntCast(pep->nconv,&count);CHKERRQ(ierr);
+        ierr = PetscMPICountCast(pep->nconv,&count);CHKERRQ(ierr);
         ierr = MPI_Bcast(array+nloc,count,MPIU_SCALAR,np-1,PetscObjectComm((PetscObject)pep));CHKERRMPI(ierr);
         ierr = VecRestoreArray(t[0],&array);CHKERRQ(ierr);
         ierr = BVRestoreColumn(pjd->V,nv,&t[0]);CHKERRQ(ierr);

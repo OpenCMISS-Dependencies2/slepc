@@ -525,7 +525,8 @@ PetscErrorCode BVOrthogonalize_LAPACK_TSQR_OnlyR(BV bv,PetscInt m_,PetscInt n_,P
   PetscInt       worklen;
   PetscBLASInt   m,n,i,j,s,nb,lwork,info;
   PetscScalar    *tau,*work,*A=NULL,*R1=NULL,*R2=NULL;
-  PetscMPIInt    size,count;
+  PetscMPIInt    size;
+  PetscMPICount  count;
   MPI_Datatype   tmat;
 
   PetscFunctionBegin;
@@ -557,7 +558,7 @@ PetscErrorCode BVOrthogonalize_LAPACK_TSQR_OnlyR(BV bv,PetscInt m_,PetscInt n_,P
     }
   } else {
     /* Use MPI reduction operation to obtain global R */
-    ierr = PetscMPIIntCast(s,&count);CHKERRQ(ierr);
+    ierr = PetscMPICountCast(s,&count);CHKERRQ(ierr);
     ierr = MPI_Type_contiguous(count,MPIU_SCALAR,&tmat);CHKERRMPI(ierr);
     ierr = MPI_Type_commit(&tmat);CHKERRMPI(ierr);
     for (i=0;i<n;i++) {

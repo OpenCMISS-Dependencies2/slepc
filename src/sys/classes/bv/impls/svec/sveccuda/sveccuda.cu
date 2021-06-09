@@ -276,7 +276,7 @@ PetscErrorCode BVDot_Svec_CUDA(BV X,BV Y,Mat M)
   PetscScalar       *pm,*d_work,sone=1.0,szero=0.0,*C,*CC;
   PetscInt          j,ldm;
   PetscCuBLASInt    m=0,n=0,k=0,ldm_=0;
-  PetscMPIInt       len;
+  PetscMPICount     count;
   cublasStatus_t    cberr;
   cublasHandle_t    cublasv2handle;
   cudaError_t       cerr;
@@ -307,8 +307,8 @@ PetscErrorCode BVDot_Svec_CUDA(BV X,BV Y,Mat M)
       } else {
         ierr = PetscArrayzero(X->work,m*n);CHKERRQ(ierr);
       }
-      ierr = PetscMPIIntCast(m*n,&len);CHKERRQ(ierr);
-      ierr = MPIU_Allreduce(X->work,C,len,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
+      ierr = PetscMPICountCast(m*n,&count);CHKERRQ(ierr);
+      ierr = MPIU_Allreduce(X->work,C,count,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
     } else {
       ierr = BVAllocateWork_Private(X,2*m*n);CHKERRQ(ierr);
       CC = X->work+m*n;
@@ -321,8 +321,8 @@ PetscErrorCode BVDot_Svec_CUDA(BV X,BV Y,Mat M)
       } else {
         ierr = PetscArrayzero(X->work,m*n);CHKERRQ(ierr);
       }
-      ierr = PetscMPIIntCast(m*n,&len);CHKERRQ(ierr);
-      ierr = MPIU_Allreduce(X->work,CC,len,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
+      ierr = PetscMPICountCast(m*n,&count);CHKERRQ(ierr);
+      ierr = MPIU_Allreduce(X->work,CC,count,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
       for (j=0;j<n;j++) {
         ierr = PetscArraycpy(C+j*ldm,CC+j*m,m);CHKERRQ(ierr);
       }
@@ -383,7 +383,7 @@ PetscErrorCode BVDotVec_Svec_CUDA(BV X,Vec y,PetscScalar *q)
   const PetscScalar *d_A,*d_x,*d_px,*d_py;
   PetscScalar       *d_work,szero=0.0,sone=1.0,*qq=q;
   PetscCuBLASInt    n=0,k=0,one=1;
-  PetscMPIInt       len;
+  PetscMPICount     count;
   Vec               z = y;
   cublasStatus_t    cberr;
   cublasHandle_t    cublasv2handle;
@@ -428,8 +428,8 @@ PetscErrorCode BVDotVec_Svec_CUDA(BV X,Vec y,PetscScalar *q)
     } else {
       cerr = cudaFree(d_work);CHKERRCUDA(cerr);
     }
-    ierr = PetscMPIIntCast(k,&len);CHKERRQ(ierr);
-    ierr = MPIU_Allreduce(X->work,qq,len,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
+    ierr = PetscMPICountCast(k,&count);CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(X->work,qq,count,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)X));CHKERRMPI(ierr);
     if (!q) { ierr = VecRestoreArray(X->buffer,&qq);CHKERRQ(ierr); }
   } else {
     if (n) {

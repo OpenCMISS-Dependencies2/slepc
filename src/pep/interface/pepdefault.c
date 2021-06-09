@@ -201,7 +201,7 @@ PetscErrorCode PEPBuildDiagonalScaling(PEP pep)
   PetscInt       it,i,j,k,nmat,nr,e,nz,lst,lend,nc=0,*cols,emax,emin,emaxl,eminl;
   const PetscInt *cidx,*ridx;
   Mat            M,*T,A;
-  PetscMPIInt    n;
+  PetscMPICount  count;
   PetscBool      cont=PETSC_TRUE,flg=PETSC_FALSE;
   PetscScalar    *array,*Dr,*Dl,t;
   PetscReal      l2,d,*rsum,*aux,*csum,w=1.0;
@@ -211,7 +211,7 @@ PetscErrorCode PEPBuildDiagonalScaling(PEP pep)
   PetscFunctionBegin;
   l2 = 2*PetscLogReal(2.0);
   nmat = pep->nmat;
-  ierr = PetscMPIIntCast(pep->n,&n);CHKERRQ(ierr);
+  ierr = PetscMPICountCast(pep->n,&count);CHKERRQ(ierr);
   ierr = STGetMatStructure(pep->st,&str);CHKERRQ(ierr);
   ierr = PetscMalloc1(nmat,&T);CHKERRQ(ierr);
   for (k=0;k<nmat;k++) {
@@ -286,7 +286,7 @@ PetscErrorCode PEPBuildDiagonalScaling(PEP pep)
       for (j=0;j<nz;j++) aux[cidx[j]] += PetscAbsScalar(array[j]);
       ierr = MatSeqAIJRestoreArray(M,&array);CHKERRQ(ierr);
     }
-    ierr = MPIU_Allreduce(aux,csum,n,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)pep->Dr));CHKERRMPI(ierr);
+    ierr = MPIU_Allreduce(aux,csum,count,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)pep->Dr));CHKERRMPI(ierr);
     /* Update Dr */
     for (j=lst;j<lend;j++) {
       d = PetscLogReal(csum[j])/l2;
