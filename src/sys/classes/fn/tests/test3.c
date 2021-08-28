@@ -105,17 +105,18 @@ int main(int argc,char **argv)
 {
   PetscErrorCode ierr;
   FN             fn;
-  Mat            A;
+  Mat            A=NULL;
   PetscInt       i,j,n=10;
   PetscScalar    *As;
   PetscViewer    viewer;
-  PetscBool      verbose,inplace,checkerror;
+  PetscBool      verbose,inplace,checkerror,matcuda=PETSC_FALSE;
 
   ierr = SlepcInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
   ierr = PetscOptionsGetInt(NULL,NULL,"-n",&n,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsHasName(NULL,NULL,"-verbose",&verbose);CHKERRQ(ierr);
   ierr = PetscOptionsHasName(NULL,NULL,"-inplace",&inplace);CHKERRQ(ierr);
   ierr = PetscOptionsHasName(NULL,NULL,"-checkerror",&checkerror);CHKERRQ(ierr);
+  ierr = PetscOptionsGetBool(NULL,NULL,"-matcuda",&matcuda,NULL);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD,"Matrix exponential, n=%" PetscInt_FMT ".\n",n);CHKERRQ(ierr);
 
   /* Create exponential function object */
@@ -131,7 +132,13 @@ int main(int argc,char **argv)
   }
 
   /* Create matrices */
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,n,n,NULL,&A);CHKERRQ(ierr);
+  if (matcuda) {
+#if defined(PETSC_HAVE_CUDA)
+    ierr = MatCreateSeqDenseCUDA(PETSC_COMM_SELF,n,n,NULL,&A);CHKERRQ(ierr);
+#endif
+  } else {
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,n,n,NULL,&A);CHKERRQ(ierr);
+  }
   ierr = PetscObjectSetName((PetscObject)A,"A");CHKERRQ(ierr);
 
   /* Fill A with a symmetric Toeplitz matrix */
@@ -173,11 +180,11 @@ int main(int argc,char **argv)
          requires: c99_complex !single
       test:
          suffix: 1_cuda
-         args: -fn_method 4
+         args: -fn_method 4 -matcuda {{0 1}}
          requires: cuda
       test:
          suffix: 1_magma
-         args: -fn_method {{5 6 7 8}}
+         args: -fn_method {{5 6 7 8}} -matcuda {{0 1}}
          requires: cuda magma
       test:
          suffix: 2
@@ -188,11 +195,11 @@ int main(int argc,char **argv)
          requires: c99_complex !single
       test:
          suffix: 2_cuda
-         args: -inplace -fn_method 4
+         args: -inplace -fn_method 4 -matcuda {{0 1}}
          requires: cuda
       test:
          suffix: 2_magma
-         args: -inplace -fn_method {{5 6 7 8}}
+         args: -inplace -fn_method {{5 6 7 8}} -matcuda {{0 1}}
          requires: cuda magma
 
    testset:

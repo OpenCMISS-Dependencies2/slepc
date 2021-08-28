@@ -691,6 +691,7 @@ PetscErrorCode FNEvaluateFunctionMat(FN fn,Mat A,Mat B)
   PetscErrorCode ierr;
   PetscBool      inplace=PETSC_FALSE;
   PetscInt       m,n,n1;
+  MatType        type;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(fn,FN_CLASSID,1);
@@ -701,11 +702,12 @@ PetscErrorCode FNEvaluateFunctionMat(FN fn,Mat A,Mat B)
     PetscValidHeaderSpecific(B,MAT_CLASSID,3);
     PetscValidType(B,3);
   } else inplace = PETSC_TRUE;
-  PetscCheckTypeName(A,MATSEQDENSE);
+  PetscCheckTypeNames(A,MATSEQDENSE,MATSEQDENSECUDA);
   ierr = MatGetSize(A,&m,&n);CHKERRQ(ierr);
   if (m!=n) SETERRQ2(PetscObjectComm((PetscObject)fn),PETSC_ERR_ARG_SIZ,"Mat A is not square (has %" PetscInt_FMT " rows, %" PetscInt_FMT " cols)",m,n);
   if (!inplace) {
-    PetscCheckTypeName(B,MATSEQDENSE);
+    ierr = MatGetType(A,&type);CHKERRQ(ierr);
+    PetscCheckTypeName(B,type);
     n1 = n;
     ierr = MatGetSize(B,&m,&n);CHKERRQ(ierr);
     if (m!=n) SETERRQ2(PetscObjectComm((PetscObject)fn),PETSC_ERR_ARG_SIZ,"Mat B is not square (has %" PetscInt_FMT " rows, %" PetscInt_FMT " cols)",m,n);
