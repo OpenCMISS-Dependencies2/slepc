@@ -194,9 +194,9 @@ endef
 
 # link line constructed differently for gmakefile vs gmakefile.test invocation
 #ifeq ($(libslepcall),)
-SLEPC_TEST_LIB = $(SLEPC_LIB)
+SLEPC_TEST_LIB = $(PETSC_LIB)
 #else
-#SLEPC_TEST_LIB = $(SLEPC_LIB)
+#SLEPC_TEST_LIB = $(PETSC_LIB)
 #SLEPC_TEST_LIB = $(C_SH_LIB_PATH) $(SLEPC_EXTERNAL_LIB_BASIC)
 #endif
 

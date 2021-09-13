@@ -2,8 +2,8 @@
 
 include ./lib/slepc/conf/slepc_variables
 
-OBJDIR := $(PETSC_ARCH)/obj
-LIBDIR := $(PETSC_ARCH)/lib
+OBJDIR := $(PETSC_DIR)/$(PETSC_ARCH)/obj
+LIBDIR := $(PETSC_DIR)/$(PETSC_ARCH)/lib
 
 pkgs  := sys eps svd pep nep mfn lme
 spkgs := sys,eps,svd,pep,nep,mfn,lme
@@ -15,7 +15,7 @@ SL_LINKER_FUNCTION ?= -shared -Wl,-soname,$(call SONAME_FUNCTION,$(notdir $(1)),
 
 SLEPC_VERSION_MAJOR := $(shell awk '/define SLEPC_VERSION_MAJOR/{print $$3;}' ./include/slepcversion.h)
 SLEPC_VERSION_MINOR := $(shell awk '/define SLEPC_VERSION_MINOR/{print $$3;}' ./include/slepcversion.h)
-SLEPC_VERSION_SUBMINOR := $(shell awk '/define SLEPC_VERSION_SUBMINOR/{print $$3;}' ./include/slepcversion.h)
+SLEPC_VERSION_SUBMINOR := $(shell awk '/define PETSC_VERSION_SUBMINOR/{print $$3;}' ${PETSC_DIR}/include/petscversion.h)
 SLEPC_VERSION_RELEASE := $(shell awk '/define SLEPC_VERSION_RELEASE/{print $$3;}' ./include/slepcversion.h)
 
 libslepc_abi_version := $(SLEPC_VERSION_MAJOR).$(if $(filter $(SLEPC_VERSION_RELEASE), 0 -2 -3 -4 -5),0)$(SLEPC_VERSION_MINOR)
@@ -25,10 +25,10 @@ libname_function = $(call SONAME_FUNCTION,$(1),$(libslepc_lib_version))
 absbasename_all = $(basename $(basename $(basename $(basename $(abspath $(1))))))# arch/lib/libpetsc.so.3.8.0 -> /path/to/arch/lib/libpetsc
 sl_linker_args = $(call SL_LINKER_FUNCTION,$(call absbasename_all,$@),$(libslepc_abi_version),$(libslepc_lib_version))
 
-libslepc_shared  := $(LIBDIR)/libslepc.$(SL_LINKER_SUFFIX)
-libslepc_soname  := $(call soname_function,$(LIBDIR)/libslepc)
-libslepc_libname := $(call libname_function,$(LIBDIR)/libslepc)
-libslepc_static  := $(LIBDIR)/libslepc.$(AR_LIB_SUFFIX)
+libslepc_shared  := $(LIBDIR)/libpetsc.$(SL_LINKER_SUFFIX)
+libslepc_soname  := $(call soname_function,$(LIBDIR)/libpetsc)
+libslepc_libname := $(call libname_function,$(LIBDIR)/libpetsc)
+libslepc_static  := $(LIBDIR)/libpetsc.$(AR_LIB_SUFFIX)
 libslepcpkgs_shared  := $(foreach pkg, $(pkgs), $(LIBDIR)/libslepc$(pkg).$(SL_LINKER_SUFFIX))
 libslepcpkgs_soname  := $(foreach pkg, $(pkgs), $(call soname_function,$(LIBDIR)/libslepc$(pkg)))
 libslepcpkgs_libname := $(foreach pkg, $(pkgs), $(call libname_function,$(LIBDIR)/libslepc$(pkg)))
@@ -95,12 +95,11 @@ showcsrc:
 define SHARED_RECIPE_DLL
   @$(RM) $@ dllcmd.${PETSC_ARCH}
   @cygpath -w $^ > dllcmd.${PETSC_ARCH}
-  $(call quiet,CLINKER) $(sl_linker_args) -o $@ @dllcmd.${PETSC_ARCH} $(SLEPC_EXTERNAL_LIB) $(PETSC_SNES_LIB)
-  @$(RM) dllcmd.${PETSC_ARCH}
+  $(call quiet,CLINKER) $(sl_linker_args) -o $@ @dllcmd.${PETSC_ARCH} @${PETSC_DIR}/dllcmd.${PETSC_ARCH} $(SLEPC_EXTERNAL_LIB)
 endef
 
 define SHARED_RECIPE_DEFAULT
-  $(call quiet,CLINKER) $(sl_linker_args) -o $@ $^ $(SLEPC_EXTERNAL_LIB) $(PETSC_SNES_LIB)
+  $(call quiet,CLINKER) $(sl_linker_args) -o $@ $^ @${PETSC_DIR}/objs.${PETSC_ARCH} $(SLEPC_EXTERNAL_LIB)
 endef
 
 SHARED_RECIPE = $(if $(findstring -LD,$(SL_LINKER_FUNCTION)),$(SHARED_RECIPE_DLL),$(SHARED_RECIPE_DEFAULT))
