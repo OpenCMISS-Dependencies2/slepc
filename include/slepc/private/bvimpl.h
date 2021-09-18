@@ -331,21 +331,26 @@ PETSC_STATIC_INLINE PetscErrorCode BV_SetValue_Default(BV bv,PetscInt j,PetscInt
 }
 
 /*
-   BV_SquareSum_Default - Returns the value h'*h, where h represents the contents of the
-   coefficients array (up to position j)
+   BV_EstimateNorm_Default - Computes the value psi=h'*h, where h represents the contents of the
+   coefficients array (up to position j), then estimates the norm of the vector resulting from
+   orthogonalization by the Pythagorean formula sqrt(beta^2-psi), where beta is the original norm.
+
+   A negative norm means that the estimation is not accurate and the norm must be computed explicitly.
 */
-PETSC_STATIC_INLINE PetscErrorCode BV_SquareSum_Default(BV bv,PetscInt j,PetscScalar *h,PetscReal *sum)
+PETSC_STATIC_INLINE PetscErrorCode BV_EstimateNorm_Default(BV bv,PetscInt j,PetscScalar *h,PetscReal beta,PetscReal *norm)
 {
   PetscErrorCode ierr;
   PetscScalar    *hh=h;
+  PetscReal      sum=beta*beta;
   PetscInt       i;
 
   PetscFunctionBegin;
-  *sum = 0.0;
   if (!h) { ierr = VecGetArray(bv->buffer,&hh);CHKERRQ(ierr); }
-  for (i=0;i<bv->nc+j;i++) *sum += PetscRealPart(hh[i]*PetscConj(hh[i]));
+  for (i=0;i<bv->nc+j;i++) sum -= PetscRealPart(hh[i]*PetscConj(hh[i]));
   if (!h) { ierr = VecRestoreArray(bv->buffer,&hh);CHKERRQ(ierr); }
   ierr = PetscLogFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
+  if (sum<0.0) *norm = -PetscSqrtReal(-sum);
+  else *norm = PetscSqrtReal(sum);
   PetscFunctionReturn(0);
 }
 
@@ -465,14 +470,14 @@ PETSC_STATIC_INLINE PetscErrorCode BV_OrthogonalizeColumn_Safe(BV bv,PetscInt j,
 SLEPC_INTERN PetscErrorCode BV_CleanCoefficients_CUDA(BV,PetscInt,PetscScalar*);
 SLEPC_INTERN PetscErrorCode BV_AddCoefficients_CUDA(BV,PetscInt,PetscScalar*,PetscScalar*);
 SLEPC_INTERN PetscErrorCode BV_SetValue_CUDA(BV,PetscInt,PetscInt,PetscScalar*,PetscScalar);
-SLEPC_INTERN PetscErrorCode BV_SquareSum_CUDA(BV,PetscInt,PetscScalar*,PetscReal*);
+SLEPC_INTERN PetscErrorCode BV_EstimateNorm_CUDA(BV,PetscInt,PetscScalar*,PetscReal,PetscReal*);
 SLEPC_INTERN PetscErrorCode BV_ApplySignature_CUDA(BV,PetscInt,PetscScalar*,PetscBool);
 SLEPC_INTERN PetscErrorCode BV_SquareRoot_CUDA(BV,PetscInt,PetscScalar*,PetscReal*);
 SLEPC_INTERN PetscErrorCode BV_StoreCoefficients_CUDA(BV,PetscInt,PetscScalar*,PetscScalar*);
 #define BV_CleanCoefficients(a,b,c)   ((a)->cuda?BV_CleanCoefficients_CUDA:BV_CleanCoefficients_Default)((a),(b),(c))
 #define BV_AddCoefficients(a,b,c,d)   ((a)->cuda?BV_AddCoefficients_CUDA:BV_AddCoefficients_Default)((a),(b),(c),(d))
 #define BV_SetValue(a,b,c,d,e)        ((a)->cuda?BV_SetValue_CUDA:BV_SetValue_Default)((a),(b),(c),(d),(e))
-#define BV_SquareSum(a,b,c,d)         ((a)->cuda?BV_SquareSum_CUDA:BV_SquareSum_Default)((a),(b),(c),(d))
+#define BV_EstimateNorm(a,b,c,d,e)    ((a)->cuda?BV_EstimateNorm_CUDA:BV_EstimateNorm_Default)((a),(b),(c),(d),(e))
 #define BV_ApplySignature(a,b,c,d)    ((a)->cuda?BV_ApplySignature_CUDA:BV_ApplySignature_Default)((a),(b),(c),(d))
 #define BV_SquareRoot(a,b,c,d)        ((a)->cuda?BV_SquareRoot_CUDA:BV_SquareRoot_Default)((a),(b),(c),(d))
 #define BV_StoreCoefficients(a,b,c,d) ((a)->cuda?BV_StoreCoefficients_CUDA:BV_StoreCoefficients_Default)((a),(b),(c),(d))
@@ -480,7 +485,7 @@ SLEPC_INTERN PetscErrorCode BV_StoreCoefficients_CUDA(BV,PetscInt,PetscScalar*,P
 #define BV_CleanCoefficients(a,b,c)   BV_CleanCoefficients_Default((a),(b),(c))
 #define BV_AddCoefficients(a,b,c,d)   BV_AddCoefficients_Default((a),(b),(c),(d))
 #define BV_SetValue(a,b,c,d,e)        BV_SetValue_Default((a),(b),(c),(d),(e))
-#define BV_SquareSum(a,b,c,d)         BV_SquareSum_Default((a),(b),(c),(d))
+#define BV_EstimateNorm(a,b,c,d,e)    BV_EstimateNorm_Default((a),(b),(c),(d),(e))
 #define BV_ApplySignature(a,b,c,d)    BV_ApplySignature_Default((a),(b),(c),(d))
 #define BV_SquareRoot(a,b,c,d)        BV_SquareRoot_Default((a),(b),(c),(d))
 #define BV_StoreCoefficients(a,b,c,d) BV_StoreCoefficients_Default((a),(b),(c),(d))

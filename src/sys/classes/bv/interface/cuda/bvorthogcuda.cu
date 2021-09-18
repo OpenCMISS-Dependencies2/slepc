@@ -96,14 +96,18 @@ PetscErrorCode BV_SetValue_CUDA(BV bv,PetscInt j,PetscInt k,PetscScalar *h,Petsc
 }
 
 /*
-   BV_SquareSum_CUDA - Returns the value h'*h, where h represents the contents of the
-   coefficients array (up to position j)
+   BV_EstimateNorm_CUDA - Computes the value psi=h'*h, where h represents the contents of the
+   coefficients array (up to position j), then estimates the norm of the vector resulting from
+   orthogonalization by the Pythagorean formula sqrt(beta^2-psi), where beta is the original norm
+
+   A negative norm means that the estimation is not accurate and the norm must be computed explicitly.
 */
-PetscErrorCode BV_SquareSum_CUDA(BV bv,PetscInt j,PetscScalar *h,PetscReal *sum)
+PetscErrorCode BV_EstimateNorm_CUDA(BV bv,PetscInt j,PetscScalar *h,PetscReal beta,PetscReal *norm)
 {
   PetscErrorCode    ierr;
   const PetscScalar *d_h;
   PetscScalar       dot;
+  PetscReal         sum;
   PetscInt          i;
   PetscCuBLASInt    idx=0,one=1;
   cublasStatus_t    cberr;
@@ -118,13 +122,15 @@ PetscErrorCode BV_SquareSum_CUDA(BV bv,PetscInt j,PetscScalar *h,PetscReal *sum)
     cberr = cublasXdotc(cublasv2handle,idx,d_h,one,d_h,one,&dot);CHKERRCUBLAS(cberr);
     ierr = PetscLogGpuTimeEnd();CHKERRQ(ierr);
     ierr = PetscLogGpuFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
-    *sum = PetscRealPart(dot);
+    sum = beta*beta-PetscRealPart(dot);
     ierr = VecCUDARestoreArrayRead(bv->buffer,&d_h);CHKERRQ(ierr);
   } else { /* cpu memory */
-    *sum = 0.0;
-    for (i=0;i<bv->nc+j;i++) *sum += PetscRealPart(h[i]*PetscConj(h[i]));
+    sum = beta*beta;
+    for (i=0;i<bv->nc+j;i++) sum -= PetscRealPart(h[i]*PetscConj(h[i]));
     ierr = PetscLogFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
   }
+  if (sum<0.0) *norm = -PetscSqrtReal(-sum);
+  else *norm = PetscSqrtReal(sum);
   PetscFunctionReturn(0);
 }
 
