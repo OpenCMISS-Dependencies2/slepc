@@ -12,6 +12,7 @@
 #define SLEPCBVIMPL_H
 
 #include <slepcbv.h>
+#include <slepcblaslapack.h>
 #include <slepc/private/slepcimpl.h>
 
 SLEPC_EXTERN PetscBool BVRegisterAllCalled;
@@ -331,9 +332,10 @@ PETSC_STATIC_INLINE PetscErrorCode BV_SetValue_Default(BV bv,PetscInt j,PetscInt
 }
 
 /*
-   BV_EstimateNorm_Default - Computes the value psi=h'*h, where h represents the contents of the
+   BV_EstimateNorm_Default - Computes the value psi=||h|| where h represents the contents of the
    coefficients array (up to position j), then estimates the norm of the vector resulting from
-   orthogonalization by the Pythagorean formula sqrt(beta^2-psi), where beta is the original norm.
+   orthogonalization by the (Cholesky) Pythagorean formula sqrt(beta-psi)*sqrt(beta+psi), where
+   beta is the original norm.
 
    A negative norm means that the estimation is not accurate and the norm must be computed explicitly.
 */
@@ -341,16 +343,17 @@ PETSC_STATIC_INLINE PetscErrorCode BV_EstimateNorm_Default(BV bv,PetscInt j,Pets
 {
   PetscErrorCode ierr;
   PetscScalar    *hh=h;
-  PetscReal      sum=beta*beta;
-  PetscInt       i;
+  PetscReal      psi;
+  PetscBLASInt   n,inc=1;
 
   PetscFunctionBegin;
   if (!h) { ierr = VecGetArray(bv->buffer,&hh);CHKERRQ(ierr); }
-  for (i=0;i<bv->nc+j;i++) sum -= PetscRealPart(hh[i]*PetscConj(hh[i]));
+  ierr = PetscBLASIntCast(bv->nc+j,&n);CHKERRQ(ierr);
+  psi = BLASnrm2_(&n,hh,&inc);
   if (!h) { ierr = VecRestoreArray(bv->buffer,&hh);CHKERRQ(ierr); }
   ierr = PetscLogFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
-  if (sum<0.0) *norm = -PetscSqrtReal(-sum);
-  else *norm = PetscSqrtReal(sum);
+  if (beta-psi<0.0) *norm = -PetscSqrtReal(psi-beta)*PetscSqrtReal(beta+psi);
+  else *norm = PetscSqrtReal(beta-psi)*PetscSqrtReal(beta+psi);
   PetscFunctionReturn(0);
 }
 

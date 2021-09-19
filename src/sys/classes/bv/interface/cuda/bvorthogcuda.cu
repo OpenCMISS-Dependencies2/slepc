@@ -96,9 +96,10 @@ PetscErrorCode BV_SetValue_CUDA(BV bv,PetscInt j,PetscInt k,PetscScalar *h,Petsc
 }
 
 /*
-   BV_EstimateNorm_CUDA - Computes the value psi=h'*h, where h represents the contents of the
+   BV_EstimateNorm_CUDA - Computes the value psi=||h|| where h represents the contents of the
    coefficients array (up to position j), then estimates the norm of the vector resulting from
-   orthogonalization by the Pythagorean formula sqrt(beta^2-psi), where beta is the original norm
+   orthogonalization by the (Cholesky) Pythagorean formula sqrt(beta-psi)*sqrt(beta+psi), where
+   beta is the original norm.
 
    A negative norm means that the estimation is not accurate and the norm must be computed explicitly.
 */
@@ -106,9 +107,8 @@ PetscErrorCode BV_EstimateNorm_CUDA(BV bv,PetscInt j,PetscScalar *h,PetscReal be
 {
   PetscErrorCode    ierr;
   const PetscScalar *d_h;
-  PetscScalar       dot;
-  PetscReal         sum;
-  PetscInt          i;
+  PetscReal         psi;
+  PetscBLASInt      n,inc=1;
   PetscCuBLASInt    idx=0,one=1;
   cublasStatus_t    cberr;
   cublasHandle_t    cublasv2handle;
@@ -119,18 +119,17 @@ PetscErrorCode BV_EstimateNorm_CUDA(BV bv,PetscInt j,PetscScalar *h,PetscReal be
     ierr = VecCUDAGetArrayRead(bv->buffer,&d_h);CHKERRQ(ierr);
     ierr = PetscCuBLASIntCast(bv->nc+j,&idx);CHKERRQ(ierr);
     ierr = PetscLogGpuTimeBegin();CHKERRQ(ierr);
-    cberr = cublasXdotc(cublasv2handle,idx,d_h,one,d_h,one,&dot);CHKERRCUBLAS(cberr);
+    cberr = cublasXnrm2(cublasv2handle,idx,d_h,one,&psi);CHKERRCUBLAS(cberr);
     ierr = PetscLogGpuTimeEnd();CHKERRQ(ierr);
     ierr = PetscLogGpuFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
-    sum = beta*beta-PetscRealPart(dot);
     ierr = VecCUDARestoreArrayRead(bv->buffer,&d_h);CHKERRQ(ierr);
   } else { /* cpu memory */
-    sum = beta*beta;
-    for (i=0;i<bv->nc+j;i++) sum -= PetscRealPart(h[i]*PetscConj(h[i]));
+    ierr = PetscBLASIntCast(bv->nc+j,&n);CHKERRQ(ierr);
+    psi = BLASnrm2_(&n,h,&inc);
     ierr = PetscLogFlops(2.0*(bv->nc+j));CHKERRQ(ierr);
   }
-  if (sum<0.0) *norm = -PetscSqrtReal(-sum);
-  else *norm = PetscSqrtReal(sum);
+  if (beta-psi<0.0) *norm = -PetscSqrtReal(psi-beta)*PetscSqrtReal(beta+psi);
+  else *norm = PetscSqrtReal(beta-psi)*PetscSqrtReal(beta+psi);
   PetscFunctionReturn(0);
 }
 
