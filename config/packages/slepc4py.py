@@ -63,7 +63,7 @@ class Slepc4py(package.Package):
       self.log.Exit('--with-slepc4py requires that cython is installed on your system')
 
     builddir = os.path.join(slepc.dir,'src','binding','slepc4py')
-    destdir  = os.path.join(slepc.prefixdir,'lib')
+    destdir  = os.path.join(slepc.prefixdir,'lib',petsc.pythondir)
 
     # add makefile rules
     envvars = 'PYTHONPATH=%s ' % pythonpath
@@ -114,7 +114,6 @@ class Slepc4py(package.Package):
     slepcconf.write('#define SLEPC4PY_INSTALL_PATH %s\n' % destdir)
     self.havepackage = True
 
-
   def SkipInstall(self,slepcrules):
     # add emtpy rules
     slepcrules.write('slepc4py-build:\n')
@@ -127,6 +126,6 @@ def get_python_path(petsc):
     return os.environ['PYTHONPATH']
   else:
     if petsc.isinstall:
-      return os.path.join(petsc.dir,'lib')
+      return os.path.join(petsc.dir,'lib',petsc.pythondir)
     else:
-      return os.path.join(petsc.dir,petsc.arch,'lib')
+      return os.path.join(petsc.dir,petsc.arch,'lib',petsc.pythondir)
