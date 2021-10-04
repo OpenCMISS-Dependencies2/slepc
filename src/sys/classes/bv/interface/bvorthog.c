@@ -715,7 +715,7 @@ static PetscErrorCode BVOrthogonalize_SVQB(BV V,Mat Rin)
 
    Collective on V
 
-   Input/Outpu Parameters:
+   Input/Output Parameters:
 +  V - basis vectors to be orthogonalized (or B-orthogonalized)
 -  R - a sequential dense matrix (or NULL), on output the triangular factor of
        the QR decomposition
