@@ -716,7 +716,7 @@ static PetscErrorCode NEPNLEIGSDividedDifferences_split(NEP nep)
         ierr = MatDestroy(&Ts);CHKERRQ(ierr);
       }
     }
-    ierr = KSPSetOperators(ctx->ksp[i],T,T);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ctx->ksp[i],T,ctx->Pmat?ctx->Pmat:T);CHKERRQ(ierr);
     ierr = KSPSetUp(ctx->ksp[i]);CHKERRQ(ierr);
     ierr = MatDestroy(&T);CHKERRQ(ierr);
   }
@@ -804,7 +804,7 @@ static PetscErrorCode NEPNLEIGSDividedDifferences_callback(NEP nep)
     for (j=1;j<ctx->nmat;j++) {
       ierr = MatAXPY(T,coeffs[j],ctx->D[j],nep->mstr);CHKERRQ(ierr);
     }
-    ierr = KSPSetOperators(ctx->ksp[i],T,T);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ctx->ksp[i],T,ctx->Pmat?ctx->Pmat:T);CHKERRQ(ierr);
     ierr = KSPSetUp(ctx->ksp[i]);CHKERRQ(ierr);
     ierr = MatDestroy(&T);CHKERRQ(ierr);
   }
@@ -879,6 +879,7 @@ PetscErrorCode NEPSetUp_NLEIGS(NEP nep)
   if (istrivial) SETERRQ(PetscObjectComm((PetscObject)nep),PETSC_ERR_SUP,"NEPNLEIGS requires a nontrivial region defining the target set");
   if (!nep->which) nep->which = NEP_TARGET_MAGNITUDE;
   if (nep->which!=NEP_TARGET_MAGNITUDE && nep->which!=NEP_TARGET_REAL && nep->which!=NEP_TARGET_IMAGINARY && nep->which!=NEP_WHICH_USER) SETERRQ(PetscObjectComm((PetscObject)nep),PETSC_ERR_SUP,"This solver supports only target selection of eigenvalues");
+  if (ctx->nshifts && ctx->Pmat) SETERRQ(PetscObjectComm((PetscObject)nep),PETSC_ERR_SUP,"Cannot set a preconditioner matrix in the rational Krylov variant");
 
   /* Initialize the NLEIGS context structure */
   k = ctx->ddmaxit;
@@ -1776,8 +1777,13 @@ static PetscErrorCode NEPNLEIGSGetKSPs_NLEIGS(NEP nep,PetscInt *nsolve,KSP **ksp
       ierr = KSPSetErrorIfNotConverged(ctx->ksp[i],PETSC_TRUE);CHKERRQ(ierr);
       ierr = KSPSetTolerances(ctx->ksp[i],SlepcDefaultTol(nep->tol),PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr);
       ierr = KSPGetPC(ctx->ksp[i],&pc);CHKERRQ(ierr);
-      ierr = KSPSetType(ctx->ksp[i],KSPPREONLY);CHKERRQ(ierr);
-      ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
+      if (ctx->Pmat) {
+        ierr = KSPSetType(ctx->ksp[i],KSPGMRES);CHKERRQ(ierr);
+        ierr = PCSetType(pc,PCJACOBI);CHKERRQ(ierr);
+      } else {
+        ierr = KSPSetType(ctx->ksp[i],KSPPREONLY);CHKERRQ(ierr);
+        ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
+      }
     }
   }
   if (nsolve) *nsolve = ctx->nshiftsw;
@@ -1903,6 +1909,96 @@ PetscErrorCode NEPNLEIGSGetFullBasis(NEP nep,PetscBool *fullbasis)
   PetscFunctionReturn(0);
 }
 
+PetscErrorCode NEPNLEIGSSetPreconditionerMat_NLEIGS(NEP nep,Mat mat)
+{
+  PetscErrorCode ierr;
+  NEP_NLEIGS     *ctx=(NEP_NLEIGS*)nep->data;
+
+  PetscFunctionBegin;
+  ierr = PetscObjectReference((PetscObject)mat);CHKERRQ(ierr);
+  ierr = MatDestroy(&ctx->Pmat);CHKERRQ(ierr);
+  ctx->Pmat  = mat;
+  nep->state = NEP_STATE_INITIAL;
+  PetscFunctionReturn(0);
+}
+
+/*@
+   NEPNLEIGSSetPreconditionerMat - Sets the matrix to be used to build the preconditioner.
+
+   Collective on nep
+
+   Input Parameters:
++  nep - nonlinear eigenvalue solver
+-  mat - the matrix that will be used in constructing the preconditioner
+
+   Notes:
+   This matrix will be passed to the internal KSP object (via the last argument
+   of KSPSetOperators()) as the matrix to be used when constructing the preconditioner.
+   If no matrix is set or mat is set to NULL, T(sigma) will be used
+   to build the preconditioner, being sigma the value set by NEPSetTarget().
+
+   If the user has a good approximation to T(sigma) that can be used to build a
+   cheap preconditioner, it can be passed with this function. Note that it affects
+   only the Pmat argument of KSPSetOperators(), not the Amat argument.
+
+   If a preconditioner matrix is set, the default is to use an iterative KSP
+   rather than a direct method.
+
+   This functionality is not available in the case of rational Krylov, i.e, when
+   the user has set several shifts with NEPNLEIGSSetRKShifts().
+
+   Level: advanced
+
+.seealso: NEPNLEIGSGetPreconditionerMat(), NEPSetTarget(), NEPNLEIGSSetRKShifts()
+@*/
+PetscErrorCode NEPNLEIGSSetPreconditionerMat(NEP nep,Mat mat)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(nep,NEP_CLASSID,1);
+  PetscValidHeaderSpecific(mat,MAT_CLASSID,2);
+  PetscCheckSameComm(nep,1,mat,2);
+  ierr = PetscTryMethod(nep,"NEPNLEIGSSetPreconditionerMat_C",(NEP,Mat),(nep,mat));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+PetscErrorCode NEPNLEIGSGetPreconditionerMat_NLEIGS(NEP nep,Mat *mat)
+{
+  NEP_NLEIGS *ctx=(NEP_NLEIGS*)nep->data;
+
+  PetscFunctionBegin;
+  *mat = ctx->Pmat;
+  PetscFunctionReturn(0);
+}
+
+/*@
+   NEPNLEIGSGetPreconditionerMat - Returns the preconditioner matrix previously set by the user.
+
+   Not Collective
+
+   Input Parameter:
+.  nep - nonlinear eigenvalue solver
+
+   Output Parameter:
+.  mat - the matrix that will be used in constructing the preconditioner or
+   NULL if no matrix was set by the user
+
+   Level: advanced
+
+.seealso: NEPNLEIGSSetPreconditionerMat()
+@*/
+PetscErrorCode NEPNLEIGSGetPreconditionerMat(NEP nep,Mat *mat)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(nep,NEP_CLASSID,1);
+  PetscValidPointer(mat,2);
+  ierr = PetscUseMethod(nep,"NEPNLEIGSGetPreconditionerMat_C",(NEP,Mat*),(nep,mat));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
 #define SHIFTMAX 30
 
 PetscErrorCode NEPSetFromOptions_NLEIGS(PetscOptionItems *PetscOptionsObject,NEP nep)
@@ -2008,6 +2104,7 @@ PetscErrorCode NEPReset_NLEIGS(NEP nep)
   }
   ierr = PetscFree4(ctx->s,ctx->xi,ctx->beta,ctx->D);CHKERRQ(ierr);
   for (k=0;k<ctx->nshiftsw;k++) { ierr = KSPReset(ctx->ksp[k]);CHKERRQ(ierr); }
+  ierr = MatDestroy(&ctx->Pmat);CHKERRQ(ierr);
   if (ctx->vrn) {
     ierr = VecDestroy(&ctx->vrn);CHKERRQ(ierr);
   }
@@ -2047,6 +2144,8 @@ PetscErrorCode NEPDestroy_NLEIGS(NEP nep)
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetFullBasis_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSSetEPS_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetEPS_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSSetPreconditionerMat_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetPreconditionerMat_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -2084,6 +2183,8 @@ SLEPC_EXTERN PetscErrorCode NEPCreate_NLEIGS(NEP nep)
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetFullBasis_C",NEPNLEIGSGetFullBasis_NLEIGS);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSSetEPS_C",NEPNLEIGSSetEPS_NLEIGS);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetEPS_C",NEPNLEIGSGetEPS_NLEIGS);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSSetPreconditionerMat_C",NEPNLEIGSSetPreconditionerMat_NLEIGS);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)nep,"NEPNLEIGSGetPreconditionerMat_C",NEPNLEIGSGetPreconditionerMat_NLEIGS);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

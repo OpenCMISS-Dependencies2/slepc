@@ -367,6 +367,8 @@ SLEPC_EXTERN PetscErrorCode NEPNLEIGSSetFullBasis(NEP,PetscBool);
 SLEPC_EXTERN PetscErrorCode NEPNLEIGSGetFullBasis(NEP,PetscBool*);
 SLEPC_EXTERN PetscErrorCode NEPNLEIGSSetEPS(NEP,EPS);
 SLEPC_EXTERN PetscErrorCode NEPNLEIGSGetEPS(NEP,EPS*);
+SLEPC_EXTERN PetscErrorCode NEPNLEIGSSetPreconditionerMat(NEP,Mat);
+SLEPC_EXTERN PetscErrorCode NEPNLEIGSGetPreconditionerMat(NEP,Mat*);
 
 #endif
 

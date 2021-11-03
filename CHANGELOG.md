@@ -2,6 +2,10 @@
 
 ## [unreleased]
 
+### Added
+
+- New function `NEPNLEIGSSetPreconditionerMat()` for a user-provided preconditioner matrix.
+
 ## [3.16] - 2021-09-30
 
 ### Added

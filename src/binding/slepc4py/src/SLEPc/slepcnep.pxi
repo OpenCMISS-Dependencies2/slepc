@@ -205,6 +205,8 @@ cdef extern from * nogil:
     int NEPNLEIGSGetFullBasis(SlepcNEP,PetscBool*)
     int NEPNLEIGSSetEPS(SlepcNEP,SlepcEPS)
     int NEPNLEIGSGetEPS(SlepcNEP,SlepcEPS*)
+    int NEPNLEIGSSetPreconditionerMat(SlepcNEP,PetscMat)
+    int NEPNLEIGSGetPreconditionerMat(SlepcNEP,PetscMat*)
 
     ctypedef enum SlepcNEPCISSExtraction "NEPCISSExtraction":
         NEP_CISS_EXTRACTION_RITZ

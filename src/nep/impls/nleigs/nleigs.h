@@ -34,6 +34,7 @@ typedef struct {
   PetscBool      lock;      /* locking/non-locking variant */
   PetscInt       idxrk;     /* index of next shift to use */
   KSP            *ksp;      /* ksp array for storing shift factorizations */
+  Mat            Pmat;      /* preconditioner matrix when provided by user */
   Vec            vrn;       /* random vector with normally distributed value */
   PetscBool      fullbasis; /* use full Krylov basis instead of TOAR basis */
   EPS            eps;       /* eigensolver used in the full basis variant */
