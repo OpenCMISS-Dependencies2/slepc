@@ -36,7 +36,7 @@ PetscBool         NEPMonitorRegisterAllCalled = PETSC_FALSE;
 .  comm - MPI communicator
 
    Output Parameter:
-.  nep - location to put the NEP context
+.  outnep - location to put the NEP context
 
    Level: beginner
 
@@ -185,7 +185,7 @@ PetscErrorCode NEPSetType(NEP nep,NEPType type)
 .  nep - the eigensolver context
 
    Output Parameter:
-.  name - name of NEP method
+.  type - name of NEP method
 
    Level: intermediate
 

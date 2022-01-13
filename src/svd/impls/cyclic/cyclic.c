@@ -634,8 +634,8 @@ static PetscErrorCode SVDCyclicSetExplicitMatrix_Cyclic(SVD svd,PetscBool explic
    Logically Collective on svd
 
    Input Parameters:
-+  svd      - singular value solver
--  explicit - boolean flag indicating if H(A) is built explicitly
++  svd            - singular value solver
+-  explicitmatrix - boolean flag indicating if H(A) is built explicitly
 
    Options Database Key:
 .  -svd_cyclic_explicitmatrix <boolean> - Indicates the boolean flag
@@ -673,7 +673,7 @@ static PetscErrorCode SVDCyclicGetExplicitMatrix_Cyclic(SVD svd,PetscBool *expli
 .  svd  - singular value solver
 
    Output Parameter:
-.  explicit - the mode flag
+.  explicitmatrix - the mode flag
 
    Level: advanced
 

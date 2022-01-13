@@ -1752,8 +1752,8 @@ static PetscErrorCode SVDTRLanczosSetExplicitMatrix_TRLanczos(SVD svd,PetscBool 
    Logically Collective on svd
 
    Input Parameters:
-+  svd      - singular value solver
--  explicit - Boolean flag indicating if Z=[A;B] is built explicitly
++  svd            - singular value solver
+-  explicitmatrix - Boolean flag indicating if Z=[A;B] is built explicitly
 
    Options Database Key:
 .  -svd_trlanczos_explicitmatrix <boolean> - Indicates the boolean flag
@@ -1795,7 +1795,7 @@ static PetscErrorCode SVDTRLanczosGetExplicitMatrix_TRLanczos(SVD svd,PetscBool 
 .  svd  - singular value solver
 
    Output Parameter:
-.  explicit - the mode flag
+.  explicitmatrix - the mode flag
 
    Level: advanced
 

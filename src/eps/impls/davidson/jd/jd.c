@@ -213,7 +213,7 @@ PetscErrorCode EPSJDSetKrylovStart(EPS eps,PetscBool krylovstart)
 
    Level: advanced
 
-.seealso: EPSJDGetKrylovStart()
+.seealso: EPSJDSetKrylovStart()
 @*/
 PetscErrorCode EPSJDGetKrylovStart(EPS eps,PetscBool *krylovstart)
 {
@@ -555,7 +555,7 @@ PetscErrorCode EPSJDGetConstCorrectionTol_JD(EPS eps,PetscBool *constant)
 
    Level: advanced
 
-.seealso: EPSJDGetConstCorrectionTol()
+.seealso: EPSJDSetConstCorrectionTol()
 @*/
 PetscErrorCode EPSJDGetConstCorrectionTol(EPS eps,PetscBool *constant)
 {

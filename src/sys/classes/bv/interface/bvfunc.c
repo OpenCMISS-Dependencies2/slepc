@@ -153,7 +153,7 @@ PetscErrorCode BVDestroy(BV *bv)
 .  comm - MPI communicator
 
    Output Parameter:
-.  bv - location to put the basis vectors context
+.  newbv - location to put the basis vectors context
 
    Level: beginner
 

@@ -888,7 +888,7 @@ static PetscErrorCode EPSPowerSetNonlinear_Power(EPS eps,PetscBool nonlinear)
    Notes:
    If this flag is set, the solver assumes that the problem is nonlinear,
    that is, the operators that define the eigenproblem are not constant
-   matrices, but depend on the eigenvector: A(x)*x=lambda*B(x)*x. This is
+   matrices, but depend on the eigenvector, A(x)*x=lambda*B(x)*x. This is
    different from the case of nonlinearity with respect to the eigenvalue
    (use the NEP solver class for this kind of problems).
 

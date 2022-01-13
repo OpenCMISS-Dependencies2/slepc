@@ -783,7 +783,7 @@ PetscErrorCode EPSValuesViewFromOptions(EPS eps)
 
    Collective on eps
 
-   Parameter:
+   Input Parameters:
 +  eps    - the eigensolver context
 -  viewer - the viewer
 

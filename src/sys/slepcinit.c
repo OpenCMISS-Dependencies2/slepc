@@ -343,6 +343,9 @@ PetscErrorCode SlepcInitializeNoArguments(void)
 /*@
    SlepcInitialized - Determine whether SLEPc is initialized.
 
+   Output Parameter:
+.  isInitialized - the result
+
    Level: beginner
 
 .seealso: SlepcInitialize(), SlepcInitializeFortran()
@@ -357,6 +360,9 @@ PetscErrorCode SlepcInitialized(PetscBool *isInitialized)
 /*@
    SlepcFinalized - Determine whether SlepcFinalize() has been called.
 
+   Output Parameter:
+.  isFinalized - the result
+
    Level: developer
 
 .seealso: SlepcFinalize()
@@ -370,7 +376,7 @@ PetscErrorCode SlepcFinalized(PetscBool *isFinalized)
 
 PETSC_EXTERN PetscBool PetscBeganMPI;
 
-/*
+/*@
    SlepcInitializeNoPointers - Calls SlepcInitialize() from C/C++ without the pointers
    to argc and args (analogue to PetscInitializeNoPointers).
 
