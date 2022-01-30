@@ -241,7 +241,7 @@ PetscErrorCode EPSConvergedRelative(EPS eps,PetscScalar eigr,PetscScalar eigi,Pe
 
   PetscFunctionBegin;
   w = SlepcAbsEigenvalue(eigr,eigi);
-  *errest = res/w;
+  *errest = (res == w && w == 0.0) ? res : res/w;
   PetscFunctionReturn(0);
 }
 
