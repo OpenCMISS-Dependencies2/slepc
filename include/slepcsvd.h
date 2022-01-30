@@ -191,6 +191,7 @@ SLEPC_EXTERN PetscErrorCode SVDReset(SVD);
 SLEPC_EXTERN PetscErrorCode SVDSetWorkVecs(SVD,PetscInt,PetscInt);
 SLEPC_EXTERN PetscErrorCode SVDSetTrackAll(SVD,PetscBool);
 SLEPC_EXTERN PetscErrorCode SVDGetTrackAll(SVD,PetscBool*);
+SLEPC_EXTERN PetscErrorCode SVDComputeVectors(SVD);
 
 SLEPC_EXTERN PetscErrorCode SVDMonitor(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt);
 SLEPC_EXTERN PetscErrorCode SVDMonitorSet(SVD,PetscErrorCode (*)(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,void*),void*,PetscErrorCode (*)(void**));

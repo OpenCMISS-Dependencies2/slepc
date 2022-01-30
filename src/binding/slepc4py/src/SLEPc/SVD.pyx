@@ -863,6 +863,13 @@ cdef class SVD(Object):
         CHKERR( SVDGetSingularTriplet(self.svd, i, &rval, Uvec, Vvec) )
         return toReal(rval)
 
+    def computeVectors(self):
+        """
+        Computes the basis vectors U and V after a successfull call `solve()`.
+        """
+        CHKERR( SVDComputeVectors(self.svd) )
+
+
     #
 
     def computeError(self, int i, etype=None):

@@ -44,6 +44,18 @@ PetscErrorCode SVDComputeVectors_Left(SVD svd)
   PetscFunctionReturn(0);
 }
 
+/*@
+   SVDComputeVectors - Computes the U and V basis after a successful call to SVDSolve()
+
+   Collective on svd
+
+   Input Parameter:
+.  svd - singular value solver context obtained from SVDCreate()
+
+   Level: beginner
+
+.seealso: SVDCreate(), SVDSetUp(), SVDSolve(), SVDDestroy()
+@*/
 PetscErrorCode SVDComputeVectors(SVD svd)
 {
   PetscErrorCode ierr;

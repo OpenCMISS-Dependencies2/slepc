@@ -112,6 +112,7 @@ cdef extern from * nogil:
     int SVDErrorView(SlepcSVD,SlepcSVDErrorType,PetscViewer)
     int SVDValuesView(SlepcSVD,PetscViewer)
     int SVDVectorsView(SlepcSVD,PetscViewer)
+    int SVDComputeVectors(SlepcSVD)
 
     int SVDCrossSetExplicitMatrix(SlepcSVD,PetscBool)
     int SVDCrossGetExplicitMatrix(SlepcSVD,PetscBool*)
