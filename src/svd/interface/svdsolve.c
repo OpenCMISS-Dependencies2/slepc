@@ -21,7 +21,8 @@ PetscErrorCode SVDComputeVectors_Left(SVD svd)
 {
   PetscErrorCode ierr;
   Vec            tl;
-  PetscInt       oldsize;
+  PetscInt       oldsize, i;
+  PetscBool      pd = PETSC_FALSE;
 
   PetscFunctionBegin;
   if (!svd->leftbasis) {
@@ -30,16 +31,26 @@ PetscErrorCode SVDComputeVectors_Left(SVD svd)
     ierr = BVGetSizes(svd->U,NULL,NULL,&oldsize);CHKERRQ(ierr);
     if (!oldsize) {
       if (!((PetscObject)(svd->U))->type_name) {
-        ierr = BVSetType(svd->U,BVSVEC);CHKERRQ(ierr);
+        ierr = BVSetType(svd->U,((PetscObject)(svd->V))->type_name);CHKERRQ(ierr);
       }
       ierr = MatCreateVecsEmpty(svd->A,NULL,&tl);CHKERRQ(ierr);
       ierr = BVSetSizesFromVec(svd->U,tl,svd->ncv);CHKERRQ(ierr);
       ierr = VecDestroy(&tl);CHKERRQ(ierr);
     }
     ierr = BVSetActiveColumns(svd->V,0,svd->nconv);CHKERRQ(ierr);
-    ierr = BVSetActiveColumns(svd->U,0,svd->nconv);CHKERRQ(ierr);
-    ierr = BVMatMult(svd->V,svd->A,svd->U);CHKERRQ(ierr);
-    ierr = BVOrthogonalize(svd->U,NULL);CHKERRQ(ierr);
+#if !defined(PETSC_USE_COMPLEX) /* Add MAT_POSITIVE_DEFINITE option so that we can check against hermitian + posdef? */
+    ierr = MatGetOption(svd->A,MAT_SPD,&pd);CHKERRQ(ierr);
+#endif
+    if (pd) {
+      ierr = BVCopy(svd->V,svd->U);CHKERRQ(ierr);
+    } else {
+      ierr = BVSetActiveColumns(svd->U,0,svd->nconv);CHKERRQ(ierr);
+      ierr = BVMatMult(svd->V,svd->A,svd->U);CHKERRQ(ierr);
+      for (i = 0; i < svd->nconv; i++) {
+        PetscScalar s = svd->sigma[i] > 0.0 ? 1./svd->sigma[i] : 1.0;
+        ierr = BVScaleColumn(svd->U,i,s);CHKERRQ(ierr);
+      }
+    }
   }
   PetscFunctionReturn(0);
 }
