@@ -17,13 +17,17 @@ int main(int argc,char **argv)
 {
   Mat            A;               /* operator matrix */
   SVD            svd;             /* singular value problem solver context */
+  BV             U,V;
   char           filename[PETSC_MAX_PATH_LEN];
   const char     *prefix,*scalar,*ints,*floats;
   PetscReal      tol=PETSC_SMALL;
+  PetscInt       n;
+  PetscBool      zeromat=PETSC_FALSE;
   PetscViewer    viewer;
   PetscErrorCode ierr;
 
   ierr = SlepcInitialize(&argc,&argv,(char*)0,help);if (ierr) return ierr;
+  ierr = PetscOptionsGetBool(NULL,NULL,"-test_zeromat",&zeromat,NULL);CHKERRQ(ierr);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         Load the matrix for which the SVD must be computed
@@ -52,6 +56,10 @@ int main(int argc,char **argv)
   ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
   ierr = MatSetFromOptions(A);CHKERRQ(ierr);
   ierr = MatLoad(A,viewer);CHKERRQ(ierr);
+  if (zeromat) {
+    ierr = MatSetOption(A,MAT_HERMITIAN,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = MatZeroEntries(A);CHKERRQ(ierr);
+  }
   ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -67,6 +75,17 @@ int main(int argc,char **argv)
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   ierr = SVDSolve(svd);CHKERRQ(ierr);
   ierr = SVDErrorView(svd,SVD_ERROR_RELATIVE,NULL);CHKERRQ(ierr);
+
+  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+                Display BV
+     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  ierr = SVDGetConverged(svd,&n);CHKERRQ(ierr);
+  ierr = SVDComputeVectors(svd);CHKERRQ(ierr);
+  ierr = SVDGetBV(svd,&U,&V);CHKERRQ(ierr);
+  ierr = BVSetActiveColumns(U,0,n);CHKERRQ(ierr);
+  ierr = BVSetActiveColumns(V,0,n);CHKERRQ(ierr);
+  ierr = BVView(U,NULL);CHKERRQ(ierr);
+  ierr = BVView(V,NULL);CHKERRQ(ierr);
   ierr = SVDDestroy(&svd);CHKERRQ(ierr);
   ierr = MatDestroy(&A);CHKERRQ(ierr);
   ierr = SlepcFinalize();
