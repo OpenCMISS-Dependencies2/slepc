@@ -320,8 +320,8 @@ PetscErrorCode SVDSetFromOptions_Cross(PetscOptionItems *PetscOptionsObject,SVD 
   PetscFunctionBegin;
   ierr = PetscOptionsHead(PetscOptionsObject,"SVD Cross Options");CHKERRQ(ierr);
 
-    ierr = PetscOptionsBool("-svd_cross_explicitmatrix","Use cross explicit matrix","SVDCrossSetExplicitMatrix",cross->explicitmatrix,&val,&set);CHKERRQ(ierr);
-    if (set) { ierr = SVDCrossSetExplicitMatrix(svd,val);CHKERRQ(ierr); }
+  ierr = PetscOptionsBool("-svd_cross_explicitmatrix","Use cross explicit matrix","SVDCrossSetExplicitMatrix",cross->explicitmatrix,&val,&set);CHKERRQ(ierr);
+  if (set) { ierr = SVDCrossSetExplicitMatrix(svd,val);CHKERRQ(ierr); }
 
   ierr = PetscOptionsTail();CHKERRQ(ierr);
 
