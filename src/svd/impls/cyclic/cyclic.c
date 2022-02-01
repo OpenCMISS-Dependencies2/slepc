@@ -454,23 +454,24 @@ PetscErrorCode SVDSolve_Cyclic(SVD svd)
 {
   PetscErrorCode ierr;
   SVD_CYCLIC     *cyclic = (SVD_CYCLIC*)svd->data;
-  PetscInt       i,j,nconv;
+  PetscInt       i;
   PetscScalar    sigma;
 
   PetscFunctionBegin;
   ierr = EPSSolve(cyclic->eps);CHKERRQ(ierr);
-  ierr = EPSGetConverged(cyclic->eps,&nconv);CHKERRQ(ierr);
+  ierr = EPSGetConverged(cyclic->eps,&svd->nconv);CHKERRQ(ierr);
   ierr = EPSGetIterationNumber(cyclic->eps,&svd->its);CHKERRQ(ierr);
   ierr = EPSGetConvergedReason(cyclic->eps,(EPSConvergedReason*)&svd->reason);CHKERRQ(ierr);
-  for (i=0,j=0;i<nconv;i++) {
+  for (i=0;i<svd->nconv;i++) {
     ierr = EPSGetEigenvalue(cyclic->eps,i,&sigma,NULL);CHKERRQ(ierr);
     if (PetscRealPart(sigma) > 0.0) {
-      if (svd->isgeneralized && svd->which==SVD_SMALLEST) svd->sigma[j] = 1.0/PetscRealPart(sigma);
-      else svd->sigma[j] = PetscRealPart(sigma);
-      j++;
+      if (svd->isgeneralized && svd->which==SVD_SMALLEST) svd->sigma[i] = 1.0/PetscRealPart(sigma);
+      else svd->sigma[i] = PetscRealPart(sigma);
+    } else {
+      ierr = PetscInfo1(svd,"Negative eigenvalue computed by EPS: %g, resetting to 0\n",(double)sigma);CHKERRQ(ierr);
+      svd->sigma[i] = 0.0;
     }
   }
-  svd->nconv = j;
   PetscFunctionReturn(0);
 }
 
