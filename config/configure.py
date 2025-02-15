@@ -119,9 +119,10 @@ else:
   packagesinpetsc = ''
 
 # Load classes for packages and process their command-line options
-import arpack, blopex, elemental, elpa, evsl, feast, hpddm, ksvd, polar, primme, scalapack, slepc4py, slicot, trlan, sowing, lapack
+import arpack, blopex, chase, elemental, elpa, evsl, feast, hpddm, ksvd, polar, primme, scalapack, slepc4py, slicot, trlan, sowing, lapack
 arpack    = arpack.Arpack(argdb,log)
 blopex    = blopex.Blopex(argdb,log)
+chase     = chase.Chase(argdb,log)
 elemental = elemental.Elemental(argdb,log,packagesinpetsc)
 elpa      = elpa.Elpa(argdb,log)
 evsl      = evsl.Evsl(argdb,log)
@@ -139,7 +140,7 @@ hpddm     = hpddm.HPDDM(argdb,log)
 
 # The next list sorts the packages in a way that dependencies of X appear before X.
 # SLEPc's configure does not build a graph of package dependencies, every dependency is searched linearly
-externalwithdeps = [arpack, blopex, elpa, evsl, hpddm, polar, ksvd, primme, slicot, trlan]
+externalwithdeps = [arpack, blopex, chase, elpa, evsl, hpddm, polar, ksvd, primme, slicot, trlan]
 # List of packages in alphabetical order
 externalpackages = sorted(externalwithdeps, key=lambda p: p.packagename.upper())
 
@@ -278,6 +279,8 @@ with slepc.CreateFile(confdir,'slepcvariables') as slepcvars:
                  includeflags.append(entry)
       slepcvars.write('SLEPC_EXTERNAL_LIB = '+' '.join(libflags)+'\n')
       slepcvars.write('SLEPC_EXTERNAL_INCLUDES = '+' '.join(includeflags)+'\n')
+      slepcvars.write('SLEPC_EXTERNAL_LIB_BASIC = '+' '.join(list(set(libflags).difference(set(slepc.libflags.split()))))+'\n')
+      slepcvars.write('SLEPC_EXTERNAL_INCLUDES_BASIC = '+' '.join(list(set(includeflags).difference(set(slepc.includeflags.split()))))+'\n')
 
 log.NewSection('Writing various configuration files...')
 

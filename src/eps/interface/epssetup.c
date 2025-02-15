@@ -288,6 +288,7 @@ PetscErrorCode EPSSetUp(EPS eps)
   Mat            A,B;
   PetscInt       k,nmat;
   PetscBool      flg;
+  EPSStoppingCtx ctx;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
@@ -334,8 +335,14 @@ PetscErrorCode EPSSetUp(EPS eps)
     if (eps->problem_type==EPS_BSE) PetscCall(SlepcCheckMatStruct(A,SLEPC_MAT_STRUCT_BSE,NULL));
   }
 
-  if (eps->nev > eps->n) eps->nev = eps->n;
-  if (eps->ncv > eps->n) eps->ncv = eps->n;
+  /* safeguard for small problems */
+  if (eps->isstructured) {
+    if (2*eps->nev > eps->n) eps->nev = eps->n/2;
+    if (2*eps->ncv > eps->n) eps->ncv = eps->n/2;
+  } else {
+    if (eps->nev > eps->n) eps->nev = eps->n;
+    if (eps->ncv > eps->n) eps->ncv = eps->n;
+  }
 
   /* check some combinations of eps->which */
   PetscCheck(!eps->ishermitian || (eps->isgeneralized && !eps->ispositive) || (eps->which!=EPS_LARGEST_IMAGINARY && eps->which!=EPS_SMALLEST_IMAGINARY && eps->which!=EPS_TARGET_IMAGINARY),PetscObjectComm((PetscObject)eps),PETSC_ERR_SUP,"Sorting the eigenvalues along the imaginary axis is not allowed when all eigenvalues are real");
@@ -354,6 +361,20 @@ PetscErrorCode EPSSetUp(EPS eps)
 
   /* call specific solver setup */
   PetscUseTypeMethod(eps,setup);
+
+  /* threshold stopping test */
+  if (eps->stop==EPS_STOP_THRESHOLD) {
+    PetscCheck(eps->thres!=PETSC_MIN_REAL,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"Must give a threshold value with EPSSetThreshold()");
+    PetscCheck(eps->which==EPS_LARGEST_MAGNITUDE || eps->which==EPS_SMALLEST_MAGNITUDE || eps->which==EPS_LARGEST_REAL || eps->which==EPS_SMALLEST_REAL || eps->which==EPS_TARGET_MAGNITUDE,PetscObjectComm((PetscObject)eps),PETSC_ERR_SUP,"Threshold stopping test can only be used with largest/smallest/target magnitude or largest/smallest real selection of eigenvalues");
+    if (eps->which==EPS_LARGEST_REAL || eps->which==EPS_SMALLEST_REAL) PetscCheck(eps->problem_type==EPS_HEP || eps->problem_type==EPS_GHEP || eps->problem_type==EPS_BSE,PetscObjectComm((PetscObject)eps),PETSC_ERR_SUP,"Threshold stopping test with largest/smallest real can only be used in problems that have all eigenvaues real");
+    else PetscCheck(eps->thres>0.0,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"In case of largest/smallest/target magnitude the threshold value must be positive");
+    PetscCheck(eps->which==EPS_LARGEST_MAGNITUDE || eps->which==EPS_TARGET_MAGNITUDE || !eps->threlative,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"Can only use a relative threshold with largest/target magnitude selection of eigenvalues");
+    PetscCall(PetscNew(&ctx));
+    ctx->thres      = eps->thres;
+    ctx->threlative = eps->threlative;
+    ctx->which      = eps->which;
+    PetscCall(EPSSetStoppingTestFunction(eps,EPSStoppingThreshold,ctx,PetscCtxDestroyDefault));
+  }
 
   /* if purification is set, check that it really makes sense */
   if (eps->purify) {
@@ -645,25 +666,27 @@ PetscErrorCode EPSSetLeftInitialSpace(EPS eps,PetscInt n,Vec isl[])
   EPSSetDimensions_Default - Set reasonable values for ncv, mpd if not set
   by the user. This is called at setup.
  */
-PetscErrorCode EPSSetDimensions_Default(EPS eps,PetscInt nev,PetscInt *ncv,PetscInt *mpd)
+PetscErrorCode EPSSetDimensions_Default(EPS eps,PetscInt *nev,PetscInt *ncv,PetscInt *mpd)
 {
   PetscBool      krylov;
+  PetscInt       n = eps->isstructured? eps->n/2: eps->n;
 
   PetscFunctionBegin;
+  if (*nev==0 && eps->stop!=EPS_STOP_THRESHOLD) *nev = 1;
   if (*ncv!=PETSC_DETERMINE) { /* ncv set */
     PetscCall(PetscObjectTypeCompareAny((PetscObject)eps,&krylov,EPSKRYLOVSCHUR,EPSARNOLDI,EPSLANCZOS,""));
     if (krylov) {
-      PetscCheck(*ncv>=nev+1 || (*ncv==nev && *ncv==eps->n),PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must be at least nev+1");
+      PetscCheck(*ncv>=*nev+1 || (*ncv==*nev && *ncv==n),PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must be at least nev+1");
     } else {
-      PetscCheck(*ncv>=nev,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must be at least nev");
+      PetscCheck(*ncv>=*nev,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must be at least nev");
     }
   } else if (*mpd!=PETSC_DETERMINE) { /* mpd set */
-    *ncv = PetscMin(eps->n,nev+(*mpd));
+    *ncv = PetscMin(n,*nev+(*mpd));
   } else { /* neither set: defaults depend on nev being small or large */
-    if (nev<500) *ncv = PetscMin(eps->n,PetscMax(2*nev,nev+15));
+    if (*nev<500) *ncv = PetscMin(n,PetscMax(2*(*nev),*nev+15));
     else {
       *mpd = 500;
-      *ncv = PetscMin(eps->n,nev+(*mpd));
+      *ncv = PetscMin(n,*nev+(*mpd));
     }
   }
   if (*mpd==PETSC_DETERMINE) *mpd = *ncv;
@@ -728,5 +751,54 @@ PetscErrorCode EPSAllocateSolution(EPS eps,PetscInt extra)
     PetscCall(BVDestroy(&eps->W));
     PetscCall(BVDuplicate(eps->V,&eps->W));
   }
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*@
+   EPSReallocateSolution - Reallocate memory storage for common variables such
+   as the eigenvalues and the basis vectors.
+
+   Collective
+
+   Input Parameters:
++  eps     - eigensolver context
+-  newsize - new size
+
+   Developer Notes:
+   This is SLEPC_EXTERN because it may be required by user plugin EPS
+   implementations.
+
+   This is called during the iteration in case the threshold stopping test has
+   been selected.
+
+   Level: developer
+
+.seealso: EPSAllocateSolution(), EPSSetThreshold()
+@*/
+PetscErrorCode EPSReallocateSolution(EPS eps,PetscInt newsize)
+{
+  PetscInt    oldsize,*nperm;
+  PetscReal   *nerrest;
+  PetscScalar *neigr,*neigi;
+
+  PetscFunctionBegin;
+  PetscCall(BVGetSizes(eps->V,NULL,NULL,&oldsize));
+  if (oldsize>=newsize) PetscFunctionReturn(PETSC_SUCCESS);
+  PetscCall(PetscInfo(eps,"Reallocating basis vectors to %" PetscInt_FMT " columns\n",newsize));
+
+  /* reallocate eigenvalues */
+  PetscCall(PetscMalloc4(newsize,&neigr,newsize,&neigi,newsize,&nerrest,newsize,&nperm));
+  PetscCall(PetscArraycpy(neigr,eps->eigr,oldsize));
+  PetscCall(PetscArraycpy(neigi,eps->eigi,oldsize));
+  PetscCall(PetscArraycpy(nerrest,eps->errest,oldsize));
+  PetscCall(PetscArraycpy(nperm,eps->perm,oldsize));
+  PetscCall(PetscFree4(eps->eigr,eps->eigi,eps->errest,eps->perm));
+  eps->eigr   = neigr;
+  eps->eigi   = neigi;
+  eps->errest = nerrest;
+  eps->perm   = nperm;
+  /* reallocate V,W */
+  PetscCall(BVResize(eps->V,newsize,PETSC_TRUE));
+  if (eps->twosided) PetscCall(BVResize(eps->W,newsize,PETSC_TRUE));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
