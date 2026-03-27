@@ -5,6 +5,7 @@
 import re
 import os
 import sys
+import warnings
 
 try:
     import setuptools
@@ -15,11 +16,8 @@ topdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(topdir, 'conf'))
 
 pyver = sys.version_info[:2]
-if pyver < (2, 6) or (3, 0) <= pyver < (3, 2):
-    raise RuntimeError("Python version 2.6, 2.7 or >= 3.2 required")
-if pyver == (2, 6) or pyver == (3, 2):
-    sys.stderr.write(
-        "WARNING: Python %d.%d is not supported.\n" % pyver)
+if pyver < (3, 6):
+    raise RuntimeError("Python version 3.6 or higher is required")
 
 PNAME = 'SLEPc'
 EMAIL = 'slepc-maint@upv.es'
@@ -28,6 +26,8 @@ PLIST = [PNAME, 'PETSc']
 # --------------------------------------------------------------------
 # Metadata
 # --------------------------------------------------------------------
+
+py_limited_api = (3, 10)
 
 def F(string):
     return string.format(
@@ -65,7 +65,6 @@ tarball  = F('{pyname}-%s.tar.gz' % get_version())
 download = '/'.join([pypiroot, pypislug, tarball])
 
 classifiers = """
-License :: OSI Approved :: BSD License
 Operating System :: POSIX
 Intended Audience :: Developers
 Intended Audience :: Science/Research
@@ -73,7 +72,6 @@ Programming Language :: C
 Programming Language :: C++
 Programming Language :: Cython
 Programming Language :: Python
-Programming Language :: Python :: 2
 Programming Language :: Python :: 3
 Programming Language :: Python :: Implementation :: CPython
 Topic :: Scientific/Engineering
@@ -110,30 +108,48 @@ metadata = {
     'maintainer'       : F('{Name} Team'),
     'maintainer_email' : EMAIL,
 }
-metadata.update({
-    'requires': ['numpy'],
-})
+metadata.update(
+    {
+        'requires': ['numpy'],
+    }
+)
 
 metadata_extra = {
     'long_description_content_type': 'text/x-rst',
 }
+
+def get_build_pysabi():
+    abi = os.environ.get("SLEPC4PY_BUILD_PYSABI", "").lower()
+    if abi and sys.implementation.name == "cpython":
+        if abi in {"false", "no", "off", "n", "0"}:
+            return None
+        if abi in {"true", "yes", "on", "y", "1"} | {"abi3"}:
+            return py_limited_api
+        if abi.startswith("cp"):
+            abi = abi[2:]
+        if "." in abi:
+            x, y = abi.split(".")
+        else:
+            x, y = abi[0], abi[1:]
+        return (int(x), int(y))
+    return None
 
 # --------------------------------------------------------------------
 # Extension modules
 # --------------------------------------------------------------------
 
 def sources():
-    src = dict(
-        source=F('{pyname}/{Name}.pyx'),
-        depends=[
+    src = {
+        'source': F('{pyname}/{Name}.pyx'),
+        'depends': [
             F('{pyname}/*.pyx'),
             F('{pyname}/*.pxd'),
             F('{pyname}/{Name}/*.pyx'),
             F('{pyname}/{Name}/*.pxd'),
             F('{pyname}/{Name}/*.pxi'),
         ],
-        workdir='src',
-    )
+        'workdir': 'src',
+    }
     return [src]
 
 def extensions():
@@ -173,20 +189,21 @@ def extensions():
             petsc4py_includes = []
         include_dirs.extend(petsc4py_includes)
     #
-    ext = dict(
-        name=F('{pyname}.lib.{Name}'),
-        sources=[F('src/{pyname}/{Name}.c')],
-        depends=depends,
-        include_dirs=[
+    ext = {
+        'name': F('{pyname}.lib.{Name}'),
+        'sources': [F('src/{pyname}/{Name}.c')],
+        'depends': depends,
+        'include_dirs': [
             'src',
             F('src/{pyname}/include'),
-        ] + include_dirs,
-        define_macros=[
+        ]
+        + include_dirs,
+        'define_macros': [
             ('MPICH_SKIP_MPICXX', 1),
             ('OMPI_SKIP_MPICXX', 1),
             ('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION'),
         ],
-    )
+    }
     return [ext]
 
 # --------------------------------------------------------------------
@@ -201,7 +218,7 @@ def get_release():
     rootdir = os.path.abspath(os.path.join(topdir, *[os.path.pardir]*3))
     version_h = os.path.join(rootdir, 'include', F('{name}version.h'))
     release_macro = '%s_VERSION_RELEASE' % F('{name}').upper()
-    version_re = re.compile(r"#define\s+%s\s+([-]*\d+)" % release_macro)
+    version_re = re.compile(r'#define\s+%s\s+([-]*\d+)' % release_macro)
     if os.path.exists(version_h) and os.path.isfile(version_h):
         with open(version_h, 'r') as f:
             release = int(version_re.search(f.read()).groups()[0])
@@ -210,9 +227,9 @@ def get_release():
 def requires(pkgname, major, minor, release=True):
     minor = minor + int(not release)
     devel = '' if release else '.dev0'
-    vmin = "%s.%s%s" % (major, minor, devel)
-    vmax = "%s.%s" % (major, minor + 1)
-    return "%s>=%s,<%s" % (pkgname, vmin, vmax)
+    vmin = f'{major}.{minor}{devel}'
+    vmax = f'{major}.{minor+1}'
+    return f'{pkgname}>={vmin},<{vmax}'
 
 def run_setup():
     is_sdist = 'sdist' in sys.argv
@@ -221,8 +238,11 @@ def run_setup():
     x, y = tuple(map(int, vstr))
     release = get_release()
     if not release:
-        setup_args['version'] = "%d.%d.0.dev0" %(x, y+1)
+        setup_args['version'] = '%d.%d.0.dev0' % (x, y + 1)
     if setuptools:
+        warnings.filterwarnings(
+            'ignore', message=r'.*fetch_build_eggs', module='setuptools'
+        )
         setup_args['zip_safe'] = False
         numpy_pin = 'numpy'
         if not is_sdist:
@@ -248,6 +268,20 @@ def run_setup():
         setup_args.update(metadata_extra)
     #
     conf = __import__(F('conf{name}'))
+    cython_sources = [src for src in sources()]  # noqa: C416
+    ext_modules = [conf.Extension(**ext) for ext in extensions()]
+    #
+    sabi = get_build_pysabi()
+    if sabi and setuptools:
+        api_tag = "cp{}{}".format(*sabi)
+        options = {"bdist_wheel": {"py_limited_api": api_tag}}
+        setup_args["options"] = options
+        api_ver = "0x{:02X}{:02X}0000".format(*sabi)
+        defines = [("Py_LIMITED_API", api_ver)]
+        for ext in ext_modules:
+            ext.define_macros.extend(defines)
+            ext.py_limited_api = True
+    #
     conf.setup(
         packages=[
             F('{pyname}'),
@@ -260,18 +294,17 @@ def run_setup():
                 F('{Name}*.h'),
                 F('include/{pyname}/*.h'),
                 F('include/{pyname}/*.i'),
+                'py.typed',
+                '*.pyi',
+                '*/*.pyi',
             ],
             F('{pyname}.lib'): [
                 F('{name}.cfg'),
             ],
         },
-        cython_sources=[
-            src for src in sources()
-        ],
-        ext_modules=[
-            conf.Extension(**ext) for ext in extensions()
-        ],
-        **setup_args
+        cython_sources=cython_sources,
+        ext_modules=ext_modules,
+        **setup_args,
     )
 
 # --------------------------------------------------------------------

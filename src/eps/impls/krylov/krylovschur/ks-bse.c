@@ -17,9 +17,25 @@
        [1] M. Shao et al, "A structure preserving Lanczos algorithm for computing
            the optical absorption spectrum", SIAM J. Matrix Anal. App. 39(2), 2018.
 
+       [2] F. Alvarruiz, B. Mellado-Pinto, J. E. Roman, "Variants of thick-restart
+           Lanczos for the Bethe-Salpeter eigenvalue problem", arXiv:2503.20920,
+           2025.
+
 */
 #include <slepc/private/epsimpl.h>
 #include "krylovschur.h"
+
+static PetscBool  cited = PETSC_FALSE;
+static const char citation[] =
+  "@Misc{slepc-bse,\n"
+  "   author = \"F. Alvarruiz and B. Mellado-Pinto and J. E. Roman\",\n"
+  "   title = \"Variants of thick-restart {Lanczos} for the {Bethe--Salpeter} eigenvalue problem\",\n"
+  "   eprint = \"2503.20920\",\n"
+  "   archivePrefix = \"arXiv\",\n"
+  "   primaryClass = \"mathematics.numerical analysis\",\n"
+  "   year = \"2025,\"\n"
+  "   doi = \"https://doi.org/10.48550/arXiv.2503.20920\"\n"
+  "}\n";
 
 static PetscErrorCode Orthog_Shao(Vec x,BV U,BV V,PetscInt j,PetscScalar *h,PetscScalar *c,PetscBool *breakdown)
 {
@@ -85,12 +101,16 @@ static PetscErrorCode EPSBSELanczos_Shao(EPS eps,BV U,BV V,PetscReal *alpha,Pets
   IS             is[2];
   PetscReal      nrm;
   PetscScalar    *hwork,lhwork[100],gamma;
+  PetscContainer container;
+  SlepcMatStruct mctx;
 
   PetscFunctionBegin;
   if (4*m > 100) PetscCall(PetscMalloc1(4*m,&hwork));
   else hwork = lhwork;
   PetscCall(STGetMatrix(eps->st,0,&H));
   PetscCall(MatNestGetISs(H,is,NULL));
+  PetscCall(PetscObjectQuery((PetscObject)H,"SlepcMatStruct",(PetscObject*)&container));
+  PetscCall(PetscContainerGetPointer(container,(void**)&mctx));
 
   /* create work vectors */
   PetscCall(BVGetColumn(V,0,&v));
@@ -106,10 +126,9 @@ static PetscErrorCode EPSBSELanczos_Shao(EPS eps,BV U,BV V,PetscReal *alpha,Pets
     if (eps->nini==0) PetscCall(BVSetRandomColumn(eps->V,0));
     PetscCall(BVGetColumn(U,0,&x));
     PetscCall(BVGetColumn(V,0,&y));
-    PetscCall(VecCopy(x,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,x));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
     PetscCall(VecDot(y,x,&gamma));
     nrm = PetscSqrtReal(PetscRealPart(gamma));
@@ -124,18 +143,15 @@ static PetscErrorCode EPSBSELanczos_Shao(EPS eps,BV U,BV V,PetscReal *alpha,Pets
     PetscCall(BVGetColumn(V,j,&v));
     PetscCall(BVGetColumn(U,j+1,&x));
     PetscCall(BVGetColumn(V,j+1,&y));
-    PetscCall(VecCopy(v,w));
-    PetscCall(VecConjugate(w));
-    PetscCall(VecScale(w,-1.0));
     PetscCall(VecNestSetSubVec(f,0,v));
     PetscCall(VecNestSetSubVec(g,0,x));
+    mctx->s = -1.0;
     PetscCall(STApply(eps->st,f,g));
     PetscCall(OrthogonalizeVector_Shao(x,U,V,j+1,v,beta,k,hwork,breakdown));
     alpha[j] = PetscRealPart(hwork[j]);
-    PetscCall(VecCopy(x,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,x));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
     PetscCall(VecDot(x,y,&gamma));
     beta[j] = PetscSqrtReal(PetscRealPart(gamma));
@@ -185,53 +201,38 @@ static PetscErrorCode EPSComputeVectors_BSE_Shao(EPS eps)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode Orthog_Gruning(Vec x,BV U,BV V,BV HU,BV HV,PetscInt j,PetscScalar *h,PetscScalar *c,PetscBool s,PetscBool *breakdown)
+static PetscErrorCode Orthog_Gruning(Vec x,BV U,BV V,BV HU,BV HV,PetscInt j,PetscScalar *h,PetscScalar *c,PetscBool *breakdown)
 {
   PetscInt i;
 
   PetscFunctionBegin;
   PetscCall(BVSetActiveColumns(U,0,j));
   PetscCall(BVSetActiveColumns(HU,0,j));
-  if (s) {
-    PetscCall(BVSetActiveColumns(V,0,j));
-    PetscCall(BVSetActiveColumns(HV,0,j));
-  } else {
-    PetscCall(BVSetActiveColumns(V,0,j-1));
-    PetscCall(BVSetActiveColumns(HV,0,j-1));
-  }
+  PetscCall(BVSetActiveColumns(V,0,j));
+  PetscCall(BVSetActiveColumns(HV,0,j));
 #if defined(PETSC_USE_COMPLEX)
   PetscCall(BVDotVecBegin(HU,x,c));
-  if (s || j>1) PetscCall(BVDotVecBegin(HV,x,c+j));
+  PetscCall(BVDotVecBegin(HV,x,c+j));
   PetscCall(BVDotVecEnd(HU,x,c));
-  if (s || j>1) PetscCall(BVDotVecEnd(HV,x,c+j));
+  PetscCall(BVDotVecEnd(HV,x,c+j));
 #else
-  if (s) PetscCall(BVDotVec(HU,x,c));
-  else PetscCall(BVDotVec(HV,x,c+j));
+  PetscCall(BVDotVec(HU,x,c));
 #endif
   for (i=0; i<j; i++) {
-    if (s) {   /* c1 = 2*real(HU^* x) ; c2 = 2*imag(HV^* x)*1i */
+    /* c1 = 2*real(HU^* x) ; c2 = 2*imag(HV^* x)*1i */
 #if defined(PETSC_USE_COMPLEX)
-      c[i] = PetscRealPart(c[i]);
-      c[j+i] = PetscCMPLX(0.0,PetscImaginaryPart(c[j+i]));
+    c[i] = PetscRealPart(c[i]);
+    c[j+i] = PetscCMPLX(0.0,PetscImaginaryPart(c[j+i]));
 #else
-      c[j+i] = 0.0;
+    c[j+i] = 0.0;
 #endif
-    } else {   /* c1 = 2*imag(HU^* x)*1i ; c2 = 2*real(HV^* x) */
-#if defined(PETSC_USE_COMPLEX)
-      c[i] = PetscCMPLX(0.0,PetscImaginaryPart(c[i]));
-      c[j+i] = PetscRealPart(c[j+i]);
-#else
-      c[i] = 0.0;
-#endif
-    }
   }
   /* x = x-U*c1-V*c2 */
 #if defined(PETSC_USE_COMPLEX)
   PetscCall(BVMultVec(U,-2.0,1.0,x,c));
   PetscCall(BVMultVec(V,-2.0,1.0,x,c+j));
 #else
-  if (s) PetscCall(BVMultVec(U,-2.0,1.0,x,c));
-  else PetscCall(BVMultVec(V,-2.0,1.0,x,c+j));
+  PetscCall(BVMultVec(U,-2.0,1.0,x,c));
 #endif
   /* accumulate orthog coeffs into h */
   for (i=0; i<2*j; i++) h[i] += 2*c[i];
@@ -247,22 +248,22 @@ static PetscErrorCode OrthogonalizeVector_Gruning(Vec x,BV U,BV V,BV HU,BV HV,Pe
   PetscFunctionBegin;
   PetscCall(PetscArrayzero(h,4*j));
 
-  /* Local orthogonalization */
   if (s) {
+    /* Local orthogonalization */
     PetscCall(BVGetColumn(U,j-1,&u));
     PetscCall(VecAXPY(x,-*beta,u));
     PetscCall(BVRestoreColumn(U,j-1,&u));
     h[j-1] = *beta;
+    /* Full orthogonalization */
+    PetscCall(Orthog_Gruning(x,U,V,HU,HV,j,h,h+2*j,breakdown));
   } else {
+    /* Local orthogonalization */
     l = j==k+1?0:j-2;  /* 1st column to orthogonalize against */
     for (i=l; i<j-1; i++) h[j+i] = beta[i];
     /* x = x-V(:,l:j-2)*h(l:j-2) */
     PetscCall(BVSetActiveColumns(V,l,j-1));
     PetscCall(BVMultVec(V,-1.0,1.0,x,h+j+l));
   }
-
-  /* Full orthogonalization */
-  PetscCall(Orthog_Gruning(x,U,V,HU,HV,j,h,h+2*j,s,breakdown));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -274,12 +275,16 @@ static PetscErrorCode EPSBSELanczos_Gruning(EPS eps,BV U,BV V,BV HU,BV HV,PetscR
   IS             is[2];
   PetscReal      nrm;
   PetscScalar    *hwork,lhwork[100],dot;
+  PetscContainer container;
+  SlepcMatStruct mctx;
 
   PetscFunctionBegin;
   if (4*m > 100) PetscCall(PetscMalloc1(4*m,&hwork));
   else hwork = lhwork;
   PetscCall(STGetMatrix(eps->st,0,&H));
   PetscCall(MatNestGetISs(H,is,NULL));
+  PetscCall(PetscObjectQuery((PetscObject)H,"SlepcMatStruct",(PetscObject*)&container));
+  PetscCall(PetscContainerGetPointer(container,(void**)&mctx));
 
   /* create work vectors */
   PetscCall(BVGetColumn(V,0,&v));
@@ -296,10 +301,9 @@ static PetscErrorCode EPSBSELanczos_Gruning(EPS eps,BV U,BV V,BV HU,BV HV,PetscR
     /* y = Hmult(v1,1) */
     PetscCall(BVGetColumn(U,k,&x));
     PetscCall(BVGetColumn(HU,k,&y));
-    PetscCall(VecCopy(x,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,x));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
     /* nrm = sqrt(2*real(u1'*y)); */
     PetscCall(VecDot(x,y,&dot));
@@ -322,11 +326,9 @@ static PetscErrorCode EPSBSELanczos_Gruning(EPS eps,BV U,BV V,BV HU,BV HV,PetscR
     /* v = Orthogonalize HU(:,j) */
     PetscCall(OrthogonalizeVector_Gruning(v,U,V,HU,HV,j+1,beta2,k,hwork,PETSC_FALSE,breakdown));
     /* y = Hmult(v,-1) */
-    PetscCall(VecCopy(v,w));
-    PetscCall(VecConjugate(w));
-    PetscCall(VecScale(w,-1.0));
     PetscCall(VecNestSetSubVec(f,0,v));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = -1.0;
     PetscCall(STApply(eps->st,f,g));
     /* beta = sqrt(2*real(v'*y)); */
     PetscCall(VecDot(v,y,&dot));
@@ -346,10 +348,9 @@ static PetscErrorCode EPSBSELanczos_Gruning(EPS eps,BV U,BV V,BV HU,BV HV,PetscR
     /* v = Orthogonalize HV(:,j) */
     PetscCall(OrthogonalizeVector_Gruning(v,U,V,HU,HV,j+1,&beta1[j],k,hwork,PETSC_TRUE,breakdown));
     /* y = Hmult(v,1) */
-    PetscCall(VecCopy(v,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,v));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
     /* beta = sqrt(2*real(v'*y)); */
     PetscCall(VecDot(v,y,&dot));
@@ -400,82 +401,33 @@ static PetscErrorCode EPSComputeVectors_BSE_Gruning(EPS eps)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode Orthog_ProjectedBSE(Vec hx,Vec hy,BV X,BV Y,PetscInt j,PetscScalar *h,PetscScalar *c,PetscBool *breakdown)
+/* Full orthogonalization of vector [hx, conj(hx)] against first j vectors in X and Y */
+static PetscErrorCode Orthog_ProjectedBSE(Vec hx,BV X,BV Y,PetscInt j,PetscScalar *h,PetscScalar *c,PetscBool *breakdown)
 {
-  PetscInt          i;
-  Mat               MX,MY,MXl,MYl;
-  Vec               c1,c2,hxl,hyl,hz;
-  PetscScalar       *cx1,*cx2;
-  PetscMPIInt       len;
+  PetscInt i;
 
   PetscFunctionBegin;
-  PetscCall(PetscMPIIntCast(j,&len));
   PetscCall(BVSetActiveColumns(X,0,j));
   PetscCall(BVSetActiveColumns(Y,0,j));
-  /* BVTDotVec does not exist yet, implemented via MatMult operations */
-  PetscCall(BVGetMat(X,&MX));
-  PetscCall(BVGetMat(Y,&MY));
-  PetscCall(MatDenseGetLocalMatrix(MX,&MXl));
-  PetscCall(MatDenseGetLocalMatrix(MY,&MYl));
-  PetscCall(MatCreateVecs(MXl,&c1,&hyl));
-  PetscCall(MatCreateVecs(MXl,&c2,&hxl));
-
-  /* c1 =  X^* hx - Y^* hy
-   * c2 = -Y^T hx + X^T hy */
-
-  PetscCall(VecGetLocalVector(hx,hxl));
-  PetscCall(VecGetLocalVector(hy,hyl));
-  PetscCall(VecDuplicate(hx,&hz));
-  /* c1 = -(Y^* hy) */
-  PetscCall(MatMultHermitianTranspose(MYl,hyl,c1));
-  PetscCall(VecScale(c1,-1));
-  /* c1 = c1 + X^* hx */
-  PetscCall(MatMultHermitianTransposeAdd(MXl,hxl,c1,c1));
-  PetscCall(VecGetArray(c1,&cx1));
-  PetscCallMPI(MPIU_Allreduce(MPI_IN_PLACE,cx1,len,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)hx)));
-  PetscCall(VecRestoreArray(c1,&cx1));
-  /* c2 = -(Y^T hx) */
-  PetscCall(MatMultTranspose(MYl,hxl,c2));
-  PetscCall(VecScale(c2,-1));
-  /* c2 = c2 + X^T hy */
-  PetscCall(MatMultTransposeAdd(MXl,hyl,c2,c2));
-  PetscCall(VecGetArray(c2,&cx2));
-  PetscCallMPI(MPIU_Allreduce(MPI_IN_PLACE,cx2,len,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)hx)));
-  PetscCall(VecRestoreArray(c2,&cx2));
-  PetscCall(VecRestoreLocalVector(hx,hxl));
-  PetscCall(VecRestoreLocalVector(hy,hyl));
-
+  /* c1 = X^* hx */
+  PetscCall(BVDotVec(X,hx,c));
+  /* c2 = Y^* conj(hx) */
+  PetscCall(VecConjugate(hx));
+  PetscCall(BVDotVec(Y,hx,c+j));
+  /* c = c1 - c2 */
+  for (i=0;i<j;i++) c[i] -= c[i+j];
+  /* hx = hx - conj(Y*c) */
+  PetscCall(BVMultVec(Y,-1.0,1.0,hx,c));
+  PetscCall(VecConjugate(hx));
+  /* hx = hx - X*c */
+  PetscCall(BVMultVec(X,-1.0,1.0,hx,c));
   /* accumulate orthog coeffs into h */
-  PetscCall(VecGetArrayRead(c1,(const PetscScalar**)&cx1));
-  PetscCall(VecGetArrayRead(c2,(const PetscScalar**)&cx2));
-  for (i=0; i<j; i++) h[i] += cx1[i];
-  for (i=0; i<j; i++) h[i+j] += cx2[i];
-  PetscCall(VecRestoreArrayRead(c1,(const PetscScalar**)&cx1));
-  PetscCall(VecRestoreArrayRead(c2,(const PetscScalar**)&cx2));
-
-  /* u = hx - X c1 - conj(Y) c2 */
-
-  /* conj(Y) c2 */
-  PetscCall(VecConjugate(c2));
-  PetscCall(VecGetLocalVector(hz,hxl));
-  PetscCall(MatMult(MYl,c2,hxl));
-  PetscCall(VecConjugate(hxl));
-  /* X c1 */
-  PetscCall(MatMultAdd(MXl,c1,hxl,hxl));
-  PetscCall(VecRestoreLocalVector(hz,hxl));
-  PetscCall(VecAXPY(hx,-1,hz));
-
-  PetscCall(BVRestoreMat(X,&MX));
-  PetscCall(BVRestoreMat(Y,&MY));
-  PetscCall(VecDestroy(&c1));
-  PetscCall(VecDestroy(&c2));
-  PetscCall(VecDestroy(&hxl));
-  PetscCall(VecDestroy(&hyl));
-  PetscCall(VecDestroy(&hz));
+  for (i=0;i<j;i++) h[i] += c[i];
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-/* Orthogonalize vector x against first j vectors in X and Y */
+/* Orthogonalize vector [hx; hy] against first j vectors in X and Y
+   The result is a vector [u; conj(u)]. Vector hx is overwritten with u. */
 static PetscErrorCode OrthogonalizeVector_ProjectedBSE(Vec hx,Vec hy,BV X,BV Y,PetscInt j,PetscReal *beta,PetscInt k,PetscScalar *h,PetscBool *breakdown)
 {
   PetscInt    l,i;
@@ -498,22 +450,25 @@ static PetscErrorCode OrthogonalizeVector_ProjectedBSE(Vec hx,Vec hy,BV X,BV Y,P
   PetscCall(BVRestoreColumn(Y,j-1,&y));
   alpha = alpha1-alpha2;
   /* Store coeffs into h */
-  for (i=l; i<j-1; i++) h[i] = h[j+i] = beta[i];
+  for (i=l; i<j-1; i++) h[i] = h[j+i] = beta[i]/2.0;
   h[j-1] = alpha;
-  h[2*j-1] = alpha-1.0;
+
   /* Orthogonalize: hx = hx - X(:,l:j-1)*h1 - conj(Y(:,l:j-1))*h2 */
+  /* hx = hx - X(:,l:j-1)*h1 */
   PetscCall(BVSetActiveColumns(X,l,j));
   PetscCall(BVSetActiveColumns(Y,l,j));
   PetscCall(BVMultVec(X,-1.0,1.0,hx,h+l));
+  /* hx = conj(hx) */
   PetscCall(VecConjugate(hx));
-  for (i=j+l; i<2*j; i++) h[j+i] = PetscConj(h[i]);
-  PetscCall(BVMultVec(Y,-1.0,1.0,hx,h+2*j+l));
+  /* hx = hx - Y(:,l:j-1)*conj(h2) */
+  h[2*j-1] = PetscConj(alpha-1.0);
+  PetscCall(BVMultVec(Y,-1.0,1.0,hx,h+j+l));
+  h[2*j-1] = alpha-1.0;
+  /* hx = conj(hx) */
   PetscCall(VecConjugate(hx));
 
   /* Full orthogonalization */
-  PetscCall(VecCopy(hx,hy));
-  PetscCall(VecConjugate(hy));
-  PetscCall(Orthog_ProjectedBSE(hx,hy,X,Y,j,h,h+2*j,breakdown));
+  PetscCall(Orthog_ProjectedBSE(hx,X,Y,j,h,h+2*j,breakdown));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -525,12 +480,16 @@ static PetscErrorCode EPSBSELanczos_ProjectedBSE(EPS eps,BV X,BV Y,Vec v,PetscRe
   IS             is[2];
   PetscReal      nrm;
   PetscScalar    *hwork,lhwork[100],gamma;
+  PetscContainer container;
+  SlepcMatStruct mctx;
 
   PetscFunctionBegin;
   if (4*m > 100) PetscCall(PetscMalloc1(4*m,&hwork));
   else hwork = lhwork;
   PetscCall(STGetMatrix(eps->st,0,&H));
   PetscCall(MatNestGetISs(H,is,NULL));
+  PetscCall(PetscObjectQuery((PetscObject)H,"SlepcMatStruct",(PetscObject*)&container));
+  PetscCall(PetscContainerGetPointer(container,(void**)&mctx));
 
   /* create work vectors */
   PetscCall(BVGetColumn(Y,0,&u));
@@ -547,12 +506,11 @@ static PetscErrorCode EPSBSELanczos_ProjectedBSE(EPS eps,BV X,BV Y,Vec v,PetscRe
     PetscCall(BVGetColumn(X,0,&x));
     /* v = Hmult(u,1) */
     PetscCall(BVGetColumn(Y,0,&y));
-    PetscCall(VecCopy(x,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,x));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
-    /* nrm = sqrt(real(u'v)) */
+    /* nrm = sqrt(real(u'*v)) */
     PetscCall(VecDot(y,x,&gamma));
     nrm = PetscSqrtReal(PetscRealPart(gamma));
     /* u = u /(nrm*2) */
@@ -574,11 +532,9 @@ static PetscErrorCode EPSBSELanczos_ProjectedBSE(EPS eps,BV X,BV Y,Vec v,PetscRe
     PetscCall(BVGetColumn(X,j+1,&x));
     PetscCall(BVGetColumn(Y,j+1,&y));
     /* u = Hmult(v,-1)*/
-    PetscCall(VecCopy(v,w));
-    PetscCall(VecConjugate(w));
-    PetscCall(VecScale(w,-1.0));
     PetscCall(VecNestSetSubVec(f,0,v));
     PetscCall(VecNestSetSubVec(g,0,x));
+    mctx->s = -1.0;
     PetscCall(STApply(eps->st,f,g));
     /* hx = (u+v) */
     PetscCall(VecCopy(x,y));
@@ -588,16 +544,15 @@ static PetscErrorCode EPSBSELanczos_ProjectedBSE(EPS eps,BV X,BV Y,Vec v,PetscRe
     PetscCall(VecConjugate(y));
     /* [u,cd] = orthog(hx,hy,X(:,1:j),Y(:,1:j),opt)*/
     PetscCall(OrthogonalizeVector_ProjectedBSE(x,y,X,Y,j+1,beta,k,hwork,breakdown));
-    /* alpha(j) = real(cd(j))-1/2 */
+    /* alpha(j) = 2*(real(cd(j))-1/2) */
     alpha[j] = 2*(PetscRealPart(hwork[j]) - 0.5);
     /* v = Hmult(u,1) */
-    PetscCall(VecCopy(x,w));
-    PetscCall(VecConjugate(w));
     PetscCall(VecNestSetSubVec(f,0,x));
     PetscCall(VecNestSetSubVec(g,0,y));
+    mctx->s = 1.0;
     PetscCall(STApply(eps->st,f,g));
     /* nrm = sqrt(real(u'*v)) */
-    /* beta(j) = nrm */
+    /* beta(j) = 2*nrm */
     PetscCall(VecDot(x,y,&gamma));
     beta[j] = 2.0*PetscSqrtReal(PetscRealPart(gamma));
     /* u = u/(nrm*2) */
@@ -669,15 +624,13 @@ PetscErrorCode EPSSetUp_KrylovSchur_BSE(EPS eps)
 {
   EPS_KRYLOVSCHUR *ctx = (EPS_KRYLOVSCHUR*)eps->data;
   PetscBool       flg,sinvert;
-  PetscInt        nev;
 
   PetscFunctionBegin;
   PetscCheck((eps->problem_type==EPS_BSE),PetscObjectComm((PetscObject)eps),PETSC_ERR_ARG_WRONGSTATE,"Problem type should be BSE");
   EPSCheckUnsupportedCondition(eps,EPS_FEATURE_ARBITRARY | EPS_FEATURE_REGION | EPS_FEATURE_EXTRACTION | EPS_FEATURE_BALANCE,PETSC_TRUE," with BSE structure");
-  if (eps->nev==0 && eps->stop!=EPS_STOP_THRESHOLD) eps->nev = 1;
-  nev = (eps->nev+1)/2;
-  PetscCall(EPSSetDimensions_Default(eps,&nev,&eps->ncv,&eps->mpd));
-  PetscCheck(eps->ncv<=nev+eps->mpd,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must not be larger than nev+mpd");
+  PetscCall(PetscCitationsRegister(citation,&cited));
+  PetscCall(EPSSetDimensions_Default(eps,&eps->nev,&eps->ncv,&eps->mpd));
+  PetscCheck(eps->ncv<=eps->nev+eps->mpd,PetscObjectComm((PetscObject)eps),PETSC_ERR_USER_INPUT,"The value of ncv must not be larger than nev+mpd");
   if (eps->max_it==PETSC_DETERMINE) eps->max_it = PetscMax(100,2*eps->n/eps->ncv)*((eps->stop==EPS_STOP_THRESHOLD)?10:1);
 
   PetscCall(PetscObjectTypeCompareAny((PetscObject)eps->st,&flg,STSINVERT,STSHIFT,""));

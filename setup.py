@@ -97,6 +97,7 @@ def bootstrap():
     elif not (PETSC_ARCH and os.path.isdir(PETSC_ARCH_DIR)):
         PETSC_ARCH = None
         os.environ.pop('PETSC_ARCH', None)
+    os.environ['SLEPC_BUILDING_WHEEL'] = '1'
 
     # Generate package __init__.py and __main__.py files
     pkgdir = os.path.join('config', 'pypi')
@@ -139,7 +140,7 @@ def get_petsc_arch():
     return PETSC_ARCH
 
 
-def config(prefix, dry_run=False):
+def config(prefix):
     log.info('SLEPc: configure')
     options = [
         '--prefix=' + prefix,
@@ -150,8 +151,6 @@ def config(prefix, dry_run=False):
     for opt in options:
         log.info(' '*4 + opt)
     # Run SLEPc configure
-    if dry_run:
-        return
     os.environ['PETSC_DIR'] = get_petsc_dir()
     os.environ['PETSC_ARCH'] = get_petsc_arch()
     python = sys.executable
@@ -160,38 +159,31 @@ def config(prefix, dry_run=False):
     if status != 0:
         raise RuntimeError(status)
     # Fix SLEPc configuration
-    using_build_backend = any(
-        os.environ.get(prefix + '_BUILD_BACKEND')
-        for prefix in ('_PYPROJECT_HOOKS', 'PEP517')
-    )
-    if using_build_backend:
-        pdir = os.environ['SLEPC_DIR']
-        parch = os.environ['PETSC_ARCH']
-        if not parch:
-            makefile = os.path.join(pdir, 'lib', 'slepc', 'conf', 'slepcvariables')
-            with open(makefile, 'r') as mfile:
-                contents = mfile.readlines()
-            for line in contents:
-                if line.startswith('PETSC_ARCH'):
-                    parch = line.split('=')[1].strip()
-                    break
-        include = os.path.join(pdir, parch, 'include')
-        for filename in (
-            'slepcconf.h',
-        ):
-            filename = os.path.join(include, filename)
-            with open(filename, 'r') as old_fh:
-                contents = old_fh.read()
-            contents = contents.replace(prefix, '${SLEPC_DIR}')
-            with open(filename, 'w') as new_fh:
-                new_fh.write(contents)
+    pdir = os.environ['SLEPC_DIR']
+    parch = os.environ['PETSC_ARCH']
+    if not parch:
+        makefile = os.path.join(pdir, 'lib', 'slepc', 'conf', 'slepcvariables')
+        with open(makefile, 'r') as mfile:
+            contents = mfile.readlines()
+        for line in contents:
+            if line.startswith('PETSC_ARCH'):
+                parch = line.split('=')[1].strip()
+                break
+    include = os.path.join(pdir, parch, 'include')
+    for filename in (
+        'slepcconf.h',
+    ):
+        filename = os.path.join(include, filename)
+        with open(filename, 'r') as old_fh:
+            contents = old_fh.read()
+        contents = contents.replace(prefix, '${SLEPC_DIR}')
+        with open(filename, 'w') as new_fh:
+            new_fh.write(contents)
 
 
-def build(dry_run=False):
+def build():
     log.info('SLEPc: build')
     # Run SLEPc build
-    if dry_run:
-        return
     PETSC_ARCH = get_petsc_arch()
     if PETSC_ARCH:
         PETSC_ARCH = 'PETSC_ARCH=' + PETSC_ARCH
@@ -202,11 +194,9 @@ def build(dry_run=False):
         raise RuntimeError(status)
 
 
-def install(dry_run=False):
+def install():
     log.info('SLEPc: install')
     # Run SLEPc install
-    if dry_run:
-        return
     PETSC_ARCH = get_petsc_arch()
     if PETSC_ARCH:
         PETSC_ARCH = 'PETSC_ARCH=' + PETSC_ARCH
@@ -248,9 +238,9 @@ class cmd_install(_install):
         #
         ctx = context().enter()
         try:
-            config(prefix, self.dry_run)
-            build(self.dry_run)
-            install(self.dry_run)
+            config(prefix)
+            build()
+            install()
         finally:
             ctx.exit()
         #
@@ -314,12 +304,12 @@ classifiers = """
 Development Status :: 5 - Production/Stable
 Intended Audience :: Developers
 Intended Audience :: Science/Research
-License :: OSI Approved :: BSD License
 Operating System :: POSIX
 Programming Language :: C
 Programming Language :: C++
 Programming Language :: Fortran
 Programming Language :: Python
+Programming Language :: Python :: 3
 Topic :: Scientific/Engineering
 Topic :: Software Development :: Libraries
 """

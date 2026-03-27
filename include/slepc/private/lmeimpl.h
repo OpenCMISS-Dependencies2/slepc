@@ -26,7 +26,7 @@ typedef struct _LMEOps *LMEOps;
 struct _LMEOps {
   PetscErrorCode (*solve[sizeof(LMEProblemType)])(LME);
   PetscErrorCode (*setup)(LME);
-  PetscErrorCode (*setfromoptions)(LME,PetscOptionItems*);
+  PetscErrorCode (*setfromoptions)(LME,PetscOptionItems);
   PetscErrorCode (*publishoptions)(LME);
   PetscErrorCode (*destroy)(LME);
   PetscErrorCode (*reset)(LME);
@@ -54,7 +54,7 @@ struct _p_LME {
   PetscBool      errorifnotconverged;    /* error out if LMESolve() does not converge */
 
   /*-------------- User-provided functions and contexts -----------------*/
-  PetscErrorCode    (*monitor[MAXLMEMONITORS])(LME,PetscInt,PetscReal,void*);
+  LMEMonitorFn      *monitor[MAXLMEMONITORS];
   PetscCtxDestroyFn *monitordestroy[MAXLMEMONITORS];
   void              *monitorcontext[MAXLMEMONITORS];
   PetscInt          numbermonitors;

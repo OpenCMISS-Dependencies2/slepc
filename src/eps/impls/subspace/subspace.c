@@ -289,7 +289,7 @@ static PetscErrorCode EPSSolve_Subspace(EPS eps)
     if (eps->reason != EPS_CONVERGED_ITERATING) break;
 
     /* Compute nxtsrr (iteration of next projection step) */
-    nxtsrr = PetscMin(eps->max_it,PetscMax((PetscInt)PetscFloorReal(stpfac*its),init));
+    nxtsrr = PetscMax((PetscInt)PetscFloorReal(stpfac*its),init);
 
     if (ngrp!=nogrp || ngrp==0 || arsd>=oarsd) {
       idsrr = nxtsrr - its;
@@ -344,6 +344,20 @@ static PetscErrorCode EPSDestroy_Subspace(EPS eps)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   EPSSUBSPACE - EPSSUBSPACE = "subspace" - The simple subspace iteration method.
+
+   Notes:
+   This solver is very basic and is not recommended in general, since it
+   will not be competitive with respect to other solvers.
+
+   The implemented method is subspace iteration with Rayleigh-Ritz projection and
+   locking, based on the SRRIT code {cite:p}`Bai97`.
+
+   Level: beginner
+
+.seealso: [](ch:eps), `EPS`, `EPSType`, `EPSSetType()`
+M*/
 SLEPC_EXTERN PetscErrorCode EPSCreate_Subspace(EPS eps)
 {
   EPS_SUBSPACE *ctx;

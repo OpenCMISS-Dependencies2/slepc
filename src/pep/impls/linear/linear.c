@@ -316,8 +316,8 @@ static PetscErrorCode PEPSetUp_Linear(PEP pep)
     PetscCall(MatCreateVecsEmpty(pep->A[0],&ctx->w[2],&ctx->w[3]));
     PetscCall(MatCreateVecs(pep->A[0],&ctx->w[4],&ctx->w[5]));
     PetscCall(MatCreateShell(PetscObjectComm((PetscObject)pep),deg*pep->nloc,deg*pep->nloc,deg*pep->n,deg*pep->n,ctx,&ctx->A));
-    if (sinv && !transf) PetscCall(MatShellSetOperation(ctx->A,MATOP_MULT,(void(*)(void))MatMult_Linear_Sinvert));
-    else PetscCall(MatShellSetOperation(ctx->A,MATOP_MULT,(void(*)(void))MatMult_Linear_Shift));
+    if (sinv && !transf) PetscCall(MatShellSetOperation(ctx->A,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Linear_Sinvert));
+    else PetscCall(MatShellSetOperation(ctx->A,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Linear_Shift));
     PetscCall(STShellSetApply(st,Apply_Linear));
     ctx->pep = pep;
 
@@ -697,7 +697,7 @@ static PetscErrorCode EPSMonitor_Linear(EPS eps,PetscInt its,PetscInt nconv,Pets
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode PEPSetFromOptions_Linear(PEP pep,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode PEPSetFromOptions_Linear(PEP pep,PetscOptionItems PetscOptionsObject)
 {
   PetscBool      set,val;
   PetscInt       k;
@@ -740,20 +740,24 @@ static PetscErrorCode PEPLinearSetLinearization_Linear(PEP pep,PetscReal alpha,P
    Logically Collective
 
    Input Parameters:
-+  pep   - polynomial eigenvalue solver
++  pep   - the polynomial eigensolver context
 .  alpha - first parameter of the linearization
 -  beta  - second parameter of the linearization
 
    Options Database Key:
-.  -pep_linear_linearization <alpha,beta> - Sets the coefficients
+.  -pep_linear_linearization alpha,beta - sets the coefficients
 
    Notes:
-   Cannot pass zero for both alpha and beta. The default values are
-   alpha=1 and beta=0.
+   See section [](#sec:linearization) for the general expressions of
+   the linearizations. Note that the expressions are different depending
+   on `PEPProblemType`.
+
+   Cannot pass zero for both `alpha` and `beta`. The default values are
+   `alpha`=1 and `beta`=0.
 
    Level: advanced
 
-.seealso: PEPLinearGetLinearization()
+.seealso: [](ch:pep), [](#sec:linearization), `PEPLINEAR`, `PEPProblemType`, `PEPLinearGetLinearization()`
 @*/
 PetscErrorCode PEPLinearSetLinearization(PEP pep,PetscReal alpha,PetscReal beta)
 {
@@ -782,7 +786,7 @@ static PetscErrorCode PEPLinearGetLinearization_Linear(PEP pep,PetscReal *alpha,
    Not Collective
 
    Input Parameter:
-.  pep  - polynomial eigenvalue solver
+.  pep  - the polynomial eigensolver context
 
    Output Parameters:
 +  alpha - the first parameter of the linearization
@@ -790,7 +794,7 @@ static PetscErrorCode PEPLinearGetLinearization_Linear(PEP pep,PetscReal *alpha,
 
    Level: advanced
 
-.seealso: PEPLinearSetLinearization()
+.seealso: [](ch:pep), `PEPLINEAR`, `PEPLinearSetLinearization()`
 @*/
 PetscErrorCode PEPLinearGetLinearization(PEP pep,PetscReal *alpha,PetscReal *beta)
 {
@@ -813,21 +817,21 @@ static PetscErrorCode PEPLinearSetExplicitMatrix_Linear(PEP pep,PetscBool explic
 }
 
 /*@
-   PEPLinearSetExplicitMatrix - Indicate if the matrices A and B for the
+   PEPLinearSetExplicitMatrix - Indicate if the matrices $A$ and $B$ for the
    linearization of the problem must be built explicitly.
 
    Logically Collective
 
    Input Parameters:
-+  pep         - polynomial eigenvalue solver
++  pep         - the polynomial eigensolver context
 -  explicitmat - boolean flag indicating if the matrices are built explicitly
 
    Options Database Key:
-.  -pep_linear_explicitmatrix <boolean> - Indicates the boolean flag
+.  -pep_linear_explicitmatrix (true|false) - set the boolean flag
 
    Level: advanced
 
-.seealso: PEPLinearGetExplicitMatrix()
+.seealso: [](ch:pep), `PEPLINEAR`, `PEPLinearGetExplicitMatrix()`
 @*/
 PetscErrorCode PEPLinearSetExplicitMatrix(PEP pep,PetscBool explicitmat)
 {
@@ -849,19 +853,19 @@ static PetscErrorCode PEPLinearGetExplicitMatrix_Linear(PEP pep,PetscBool *expli
 
 /*@
    PEPLinearGetExplicitMatrix - Returns the flag indicating if the matrices
-   A and B for the linearization are built explicitly.
+   $A$ and $B$ for the linearization are built explicitly.
 
    Not Collective
 
    Input Parameter:
-.  pep  - polynomial eigenvalue solver
+.  pep  - the polynomial eigensolver context
 
    Output Parameter:
 .  explicitmat - the mode flag
 
    Level: advanced
 
-.seealso: PEPLinearSetExplicitMatrix()
+.seealso: [](ch:pep), `PEPLINEAR`, `PEPLinearSetExplicitMatrix()`
 @*/
 PetscErrorCode PEPLinearGetExplicitMatrix(PEP pep,PetscBool *explicitmat)
 {
@@ -886,18 +890,18 @@ static PetscErrorCode PEPLinearSetEPS_Linear(PEP pep,EPS eps)
 }
 
 /*@
-   PEPLinearSetEPS - Associate an eigensolver object (EPS) to the
+   PEPLinearSetEPS - Associate a linear eigensolver object (`EPS`) to the
    polynomial eigenvalue solver.
 
    Collective
 
    Input Parameters:
-+  pep - polynomial eigenvalue solver
--  eps - the eigensolver object
++  pep - the polynomial eigensolver context
+-  eps - the linear eigensolver context
 
    Level: advanced
 
-.seealso: PEPLinearGetEPS()
+.seealso: [](ch:pep), `PEPLINEAR`, `PEPLinearGetEPS()`
 @*/
 PetscErrorCode PEPLinearSetEPS(PEP pep,EPS eps)
 {
@@ -927,20 +931,20 @@ static PetscErrorCode PEPLinearGetEPS_Linear(PEP pep,EPS *eps)
 }
 
 /*@
-   PEPLinearGetEPS - Retrieve the eigensolver object (EPS) associated
+   PEPLinearGetEPS - Retrieve the linear eigensolver object (`EPS`) associated
    to the polynomial eigenvalue solver.
 
    Collective
 
    Input Parameter:
-.  pep - polynomial eigenvalue solver
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
-.  eps - the eigensolver object
+.  eps - the linear eigensolver context
 
    Level: advanced
 
-.seealso: PEPLinearSetEPS()
+.seealso: [](ch:pep), `PEPLINEAR`, `PEPLinearSetEPS()`
 @*/
 PetscErrorCode PEPLinearGetEPS(PEP pep,EPS *eps)
 {
@@ -1002,6 +1006,25 @@ static PetscErrorCode PEPDestroy_Linear(PEP pep)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   PEPLINEAR - PEPLINEAR = "linear" - A linearization-based solver that
+   uses `EPS` to solve the resulting linear eigenproblem.
+
+   Notes:
+   A linear eigenvalue problem is obtained by linearization, as described
+   in section [](#sec:linearization), where the linearization parameters
+   can be set via `PEPLinearSetLinearization()`. Note that the linearization
+   is done differently depending on `PEPProblemType`. Then the matrices of
+   the linearization are passed to an `EPS` object. Use `PEPLinearGetEPS()`
+   to configure this solver.
+
+   By default, the matrices of the linearization are handled implicitly via
+   shell matrices, but this can be changed with `PEPLinearSetExplicitMatrix()`.
+
+   Level: beginner
+
+.seealso: [](ch:pep), [](#sec:linearization), `PEP`, `PEPType`, `PEPProblemType`, `PEPSetType()`, `PEPLinearSetLinearization()`, `PEPLinearGetEPS()`, `PEPLinearSetExplicitMatrix()`
+M*/
 SLEPC_EXTERN PetscErrorCode PEPCreate_Linear(PEP pep)
 {
   PEP_LINEAR     *ctx;

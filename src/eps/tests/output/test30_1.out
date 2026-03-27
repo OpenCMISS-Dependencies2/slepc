@@ -31,7 +31,7 @@ ST Object: 1 MPI process
   number of matrices: 1
   KSP Object: (st_) 1 MPI process
     type: gmres
-      restart=30, using Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement
+      restart=30, using classical (unmodified) Gram-Schmidt orthogonalization with no iterative refinement
     maximum iterations=5, initial guess is zero
     left preconditioning
     using DEFAULT norm type for convergence test
@@ -84,28 +84,28 @@ ST Object: 1 MPI process
         type: preonly
         maximum iterations=10000, initial guess is zero
         left preconditioning
-        using NONE norm type for convergence test
+        not checking for convergence
       PC Object: (st_sub_) 1 MPI process
         type: ilu
           out-of-place factorization
           0 levels of fill
           matrix ordering: natural
           factor fill ratio given 1., needed 1.
-            Factored matrix follows:
+            Factored matrix:
               Mat Object: (st_sub_) 1 MPI process
                 type: seqaij
                 rows=20, cols=20
                 package used to perform factorization: petsc
                 total: nonzeros=20, allocated nonzeros=20
                   not using I-node routines
-        linear system matrix = precond matrix:
+        linear system matrix, which is also used to construct the preconditioner:
         Mat Object: (st_sub_) 1 MPI process
           type: seqaij
           rows=20, cols=20
           total: nonzeros=20, allocated nonzeros=20
           total number of mallocs used during MatSetValues calls=0
             not using I-node routines
-    linear system matrix = precond matrix:
+    linear system matrix, which is also used to construct the preconditioner:
     Mat Object: (st_sub_) 1 MPI process
       type: seqaij
       rows=20, cols=20

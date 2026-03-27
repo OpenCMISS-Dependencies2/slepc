@@ -28,7 +28,7 @@ PetscFunctionList PEPMonitorDestroyList       = NULL;
 PetscBool         PEPMonitorRegisterAllCalled = PETSC_FALSE;
 
 /*@
-   PEPCreate - Creates the default PEP context.
+   PEPCreate - Creates the `PEP` context.
 
    Collective
 
@@ -36,14 +36,14 @@ PetscBool         PEPMonitorRegisterAllCalled = PETSC_FALSE;
 .  comm - MPI communicator
 
    Output Parameter:
-.  outpep - location to put the PEP context
+.  outpep - location to put the `PEP` context
 
    Note:
-   The default PEP type is PEPTOAR
+   The default `PEP` type is `PEPTOAR`.
 
    Level: beginner
 
-.seealso: PEPSetUp(), PEPSolve(), PEPDestroy(), PEP
+.seealso: [](ch:pep), `PEPSetUp()`, `PEPSolve()`, `PEPDestroy()`, `PEP`
 @*/
 PetscErrorCode PEPCreate(MPI_Comm comm,PEP *outpep)
 {
@@ -126,33 +126,31 @@ PetscErrorCode PEPCreate(MPI_Comm comm,PEP *outpep)
 }
 
 /*@
-   PEPSetType - Selects the particular solver to be used in the PEP object.
+   PEPSetType - Selects the particular solver to be used in the `PEP` object.
 
    Logically Collective
 
    Input Parameters:
-+  pep      - the polynomial eigensolver context
--  type     - a known method
++  pep  - the polynomial eigensolver context
+-  type - a known method
 
    Options Database Key:
-.  -pep_type <method> - Sets the method; use -help for a list
-    of available methods
+.  -pep_type type - sets the method; use `-help` for a list of available methods
 
    Notes:
-   See "slepc/include/slepcpep.h" for available methods. The default
-   is PEPTOAR.
+   See `PEPType` for available methods. The default is `PEPTOAR`.
 
-   Normally, it is best to use the PEPSetFromOptions() command and
-   then set the PEP type from the options database rather than by using
+   Normally, it is best to use the `PEPSetFromOptions()` command and
+   then set the `PEP` type from the options database rather than by using
    this routine.  Using the options database provides the user with
    maximum flexibility in evaluating the different available methods.
-   The PEPSetType() routine is provided for those situations where it
+   The `PEPSetType()` routine is provided for those situations where it
    is necessary to set the iterative solver independently of the command
    line or options database.
 
    Level: intermediate
 
-.seealso: PEPType
+.seealso: [](ch:pep), `PEPType`
 @*/
 PetscErrorCode PEPSetType(PEP pep,PEPType type)
 {
@@ -179,19 +177,19 @@ PetscErrorCode PEPSetType(PEP pep,PEPType type)
 }
 
 /*@
-   PEPGetType - Gets the PEP type as a string from the PEP object.
+   PEPGetType - Gets the `PEP` type as a string from the `PEP` object.
 
    Not Collective
 
    Input Parameter:
-.  pep - the eigensolver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
-.  type - name of PEP method
+.  type - name of `PEP` method
 
    Level: intermediate
 
-.seealso: PEPSetType()
+.seealso: [](ch:pep), `PEPSetType()`
 @*/
 PetscErrorCode PEPGetType(PEP pep,PEPType *type)
 {
@@ -208,25 +206,26 @@ PetscErrorCode PEPGetType(PEP pep,PEPType *type)
    Not Collective
 
    Input Parameters:
-+  name - name of a new user-defined solver
++  name     - name of a new user-defined solver
 -  function - routine to create the solver context
 
-   Notes:
-   PEPRegister() may be called multiple times to add several user-defined solvers.
+   Note:
+   `PEPRegister()` may be called multiple times to add several user-defined solvers.
 
    Example Usage:
 .vb
-    PEPRegister("my_solver",MySolverCreate);
+   PEPRegister("my_solver",MySolverCreate);
 .ve
 
    Then, your solver can be chosen with the procedural interface via
-$     PEPSetType(pep,"my_solver")
-   or at runtime via the option
-$     -pep_type my_solver
+.vb
+   PEPSetType(pep,"my_solver")
+.ve
+   or at runtime via the option `-pep_type my_solver`.
 
    Level: advanced
 
-.seealso: PEPRegisterAll()
+.seealso: [](ch:pep), `PEPRegisterAll()`
 @*/
 PetscErrorCode PEPRegister(const char *name,PetscErrorCode (*function)(PEP))
 {
@@ -237,20 +236,25 @@ PetscErrorCode PEPRegister(const char *name,PetscErrorCode (*function)(PEP))
 }
 
 /*@C
-   PEPMonitorRegister - Adds PEP monitor routine.
+   PEPMonitorRegister - Registers a `PEP` monitor routine that may be accessed with
+   `PEPMonitorSetFromOptions()`.
 
    Not Collective
 
    Input Parameters:
 +  name    - name of a new monitor routine
-.  vtype   - a PetscViewerType for the output
-.  format  - a PetscViewerFormat for the output
-.  monitor - monitor routine
-.  create  - creation routine, or NULL
--  destroy - destruction routine, or NULL
+.  vtype   - a `PetscViewerType` for the output
+.  format  - a `PetscViewerFormat` for the output
+.  monitor - monitor routine, see `PEPMonitorRegisterFn`
+.  create  - creation routine, or `NULL`
+-  destroy - destruction routine, or `NULL`
 
    Notes:
-   PEPMonitorRegister() may be called multiple times to add several user-defined monitors.
+   `PEPMonitorRegister()` may be called multiple times to add several user-defined monitors.
+
+   The calling sequence for the given function matches the calling sequence of `PEPMonitorFn`
+   functions passed to `PEPMonitorSet()` with the additional requirement that its final argument
+   be a `PetscViewerAndFormat`.
 
    Example Usage:
 .vb
@@ -258,15 +262,16 @@ PetscErrorCode PEPRegister(const char *name,PetscErrorCode (*function)(PEP))
 .ve
 
    Then, your monitor can be chosen with the procedural interface via
-$      PEPMonitorSetFromOptions(pep,"-pep_monitor_my_monitor","my_monitor",NULL)
-   or at runtime via the option
-$      -pep_monitor_my_monitor
+.vb
+   PEPMonitorSetFromOptions(pep,"-pep_monitor_my_monitor","my_monitor",NULL);
+.ve
+   or at runtime via the option `-pep_monitor_my_monitor`.
 
    Level: advanced
 
-.seealso: PEPMonitorRegisterAll()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorRegisterAll()`, `PEPMonitorSetFromOptions()`
 @*/
-PetscErrorCode PEPMonitorRegister(const char name[],PetscViewerType vtype,PetscViewerFormat format,PetscErrorCode (*monitor)(PEP,PetscInt,PetscInt,PetscScalar*,PetscScalar*,PetscReal*,PetscInt,PetscViewerAndFormat*),PetscErrorCode (*create)(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**),PetscErrorCode (*destroy)(PetscViewerAndFormat**))
+PetscErrorCode PEPMonitorRegister(const char name[],PetscViewerType vtype,PetscViewerFormat format,PEPMonitorRegisterFn *monitor,PEPMonitorRegisterCreateFn *create,PEPMonitorRegisterDestroyFn *destroy)
 {
   char           key[PETSC_MAX_PATH_LEN];
 
@@ -280,17 +285,17 @@ PetscErrorCode PEPMonitorRegister(const char name[],PetscViewerType vtype,PetscV
 }
 
 /*@
-   PEPReset - Resets the PEP context to the initial state (prior to setup)
-   and destroys any allocated Vecs and Mats.
+   PEPReset - Resets the `PEP` context to the initial state (prior to setup)
+   and destroys any allocated `Vec`s and `Mat`s.
 
    Collective
 
    Input Parameter:
-.  pep - eigensolver context obtained from PEPCreate()
+.  pep - the polynomial eigensolver context
 
    Level: advanced
 
-.seealso: PEPDestroy()
+.seealso: [](ch:pep), `PEPDestroy()`
 @*/
 PetscErrorCode PEPReset(PEP pep)
 {
@@ -316,16 +321,16 @@ PetscErrorCode PEPReset(PEP pep)
 }
 
 /*@
-   PEPDestroy - Destroys the PEP context.
+   PEPDestroy - Destroys the `PEP` context.
 
    Collective
 
    Input Parameter:
-.  pep - eigensolver context obtained from PEPCreate()
+.  pep - the polynomial eigensolver context
 
    Level: beginner
 
-.seealso: PEPCreate(), PEPSetUp(), PEPSolve()
+.seealso: [](ch:pep), `PEPCreate()`, `PEPSetUp()`, `PEPSolve()`
 @*/
 PetscErrorCode PEPDestroy(PEP *pep)
 {
@@ -357,16 +362,16 @@ PetscErrorCode PEPDestroy(PEP *pep)
    Collective
 
    Input Parameters:
-+  pep - eigensolver context obtained from PEPCreate()
++  pep - the polynomial eigensolver context
 -  bv  - the basis vectors object
 
    Note:
-   Use PEPGetBV() to retrieve the basis vectors context (for example,
+   Use `PEPGetBV()` to retrieve the basis vectors context (for example,
    to free it at the end of the computations).
 
    Level: advanced
 
-.seealso: PEPGetBV()
+.seealso: [](ch:pep), `PEPGetBV()`
 @*/
 PetscErrorCode PEPSetBV(PEP pep,BV bv)
 {
@@ -386,15 +391,15 @@ PetscErrorCode PEPSetBV(PEP pep,BV bv)
 
    Not Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  bv - basis vectors context
 
    Level: advanced
 
-.seealso: PEPSetBV()
+.seealso: [](ch:pep), `PEPSetBV()`
 @*/
 PetscErrorCode PEPGetBV(PEP pep,BV *bv)
 {
@@ -416,16 +421,16 @@ PetscErrorCode PEPGetBV(PEP pep,BV *bv)
    Collective
 
    Input Parameters:
-+  pep - eigensolver context obtained from PEPCreate()
++  pep - the polynomial eigensolver context
 -  rg  - the region object
 
    Note:
-   Use PEPGetRG() to retrieve the region context (for example,
+   Use `PEPGetRG()` to retrieve the region context (for example,
    to free it at the end of the computations).
 
    Level: advanced
 
-.seealso: PEPGetRG()
+.seealso: [](ch:pep), `PEPGetRG()`
 @*/
 PetscErrorCode PEPSetRG(PEP pep,RG rg)
 {
@@ -447,15 +452,15 @@ PetscErrorCode PEPSetRG(PEP pep,RG rg)
 
    Not Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  rg - region context
 
    Level: advanced
 
-.seealso: PEPSetRG()
+.seealso: [](ch:pep), `PEPSetRG()`
 @*/
 PetscErrorCode PEPGetRG(PEP pep,RG *rg)
 {
@@ -477,16 +482,16 @@ PetscErrorCode PEPGetRG(PEP pep,RG *rg)
    Collective
 
    Input Parameters:
-+  pep - eigensolver context obtained from PEPCreate()
++  pep - the polynomial eigensolver context
 -  ds  - the direct solver object
 
    Note:
-   Use PEPGetDS() to retrieve the direct solver context (for example,
+   Use `PEPGetDS()` to retrieve the direct solver context (for example,
    to free it at the end of the computations).
 
    Level: advanced
 
-.seealso: PEPGetDS()
+.seealso: [](ch:pep), `PEPGetDS()`
 @*/
 PetscErrorCode PEPSetDS(PEP pep,DS ds)
 {
@@ -506,15 +511,15 @@ PetscErrorCode PEPSetDS(PEP pep,DS ds)
 
    Not Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  ds - direct solver context
 
    Level: advanced
 
-.seealso: PEPSetDS()
+.seealso: [](ch:pep), `PEPSetDS()`
 @*/
 PetscErrorCode PEPGetDS(PEP pep,DS *ds)
 {
@@ -536,16 +541,16 @@ PetscErrorCode PEPGetDS(PEP pep,DS *ds)
    Collective
 
    Input Parameters:
-+  pep - eigensolver context obtained from PEPCreate()
--  st   - the spectral transformation object
++  pep - the polynomial eigensolver context
+-  st  - the spectral transformation object
 
    Note:
-   Use PEPGetST() to retrieve the spectral transformation context (for example,
+   Use `PEPGetST()` to retrieve the spectral transformation context (for example,
    to free it at the end of the computations).
 
    Level: advanced
 
-.seealso: PEPGetST()
+.seealso: [](ch:pep), `PEPGetST()`
 @*/
 PetscErrorCode PEPSetST(PEP pep,ST st)
 {
@@ -560,20 +565,20 @@ PetscErrorCode PEPSetST(PEP pep,ST st)
 }
 
 /*@
-   PEPGetST - Obtain the spectral transformation (ST) object associated
+   PEPGetST - Obtain the spectral transformation (`ST`) object associated
    to the eigensolver object.
 
    Not Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  st - spectral transformation context
 
    Level: intermediate
 
-.seealso: PEPSetST()
+.seealso: [](ch:pep), `PEPSetST()`
 @*/
 PetscErrorCode PEPGetST(PEP pep,ST *st)
 {
@@ -590,20 +595,20 @@ PetscErrorCode PEPGetST(PEP pep,ST *st)
 }
 
 /*@
-   PEPRefineGetKSP - Obtain the ksp object used by the eigensolver
+   PEPRefineGetKSP - Obtain the `KSP` object used by the eigensolver
    object in the refinement phase.
 
    Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
-.  ksp - ksp context
+.  ksp - the linear solver context
 
    Level: advanced
 
-.seealso: PEPSetRefine()
+.seealso: [](ch:pep), `PEPSetRefine()`
 @*/
 PetscErrorCode PEPRefineGetKSP(PEP pep,KSP *ksp)
 {
@@ -637,23 +642,26 @@ PetscErrorCode PEPRefineGetKSP(PEP pep,KSP *ksp)
    Logically Collective
 
    Input Parameters:
-+  pep    - eigensolver context
++  pep    - the polynomial eigensolver context
 -  target - the value of the target
 
    Options Database Key:
-.  -pep_target <scalar> - the value of the target
+.  -pep_target target - the value of the target
 
    Notes:
    The target is a scalar value used to determine the portion of the spectrum
-   of interest. It is used in combination with PEPSetWhichEigenpairs().
+   of interest. It is used in combination with `PEPSetWhichEigenpairs()`.
+
+   When PETSc is built with real scalars, it is not possible to specify a
+   complex target.
 
    In the case of complex scalars, a complex value can be provided in the
-   command line with [+/-][realnumber][+/-]realnumberi with no spaces, e.g.
-   -pep_target 1.0+2.0i
+   command line with `[+/-][realnumber][+/-]realnumberi` with no spaces, e.g.
+   `-pep_target 1.0+2.0i`.
 
    Level: intermediate
 
-.seealso: PEPGetTarget(), PEPSetWhichEigenpairs()
+.seealso: [](ch:pep), `PEPGetTarget()`, `PEPSetWhichEigenpairs()`
 @*/
 PetscErrorCode PEPSetTarget(PEP pep,PetscScalar target)
 {
@@ -672,7 +680,7 @@ PetscErrorCode PEPSetTarget(PEP pep,PetscScalar target)
    Not Collective
 
    Input Parameter:
-.  pep - eigensolver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  target - the value of the target
@@ -682,7 +690,7 @@ PetscErrorCode PEPSetTarget(PEP pep,PetscScalar target)
 
    Level: intermediate
 
-.seealso: PEPSetTarget()
+.seealso: [](ch:pep), `PEPSetTarget()`
 @*/
 PetscErrorCode PEPGetTarget(PEP pep,PetscScalar* target)
 {
@@ -699,27 +707,28 @@ PetscErrorCode PEPGetTarget(PEP pep,PetscScalar* target)
    Logically Collective
 
    Input Parameters:
-+  pep  - eigensolver context
++  pep  - the polynomial eigensolver context
 .  inta - left end of the interval
 -  intb - right end of the interval
 
    Options Database Key:
-.  -pep_interval <a,b> - set [a,b] as the interval of interest
+.  -pep_interval a,b - set $[a,b]$ as the interval of interest
 
    Notes:
    Spectrum slicing is a technique employed for computing all eigenvalues of
-   symmetric eigenproblems in a given interval. This function provides the
-   interval to be considered. It must be used in combination with PEP_ALL, see
-   PEPSetWhichEigenpairs().
+   symmetric quadratic eigenproblems in a given interval, see section [](#sec:qslice).
+   This function provides the interval to be considered. It must be used in
+   combination with `PEP_ALL`, see `PEPSetWhichEigenpairs()`. Note that in
+   polynomial eigenproblems spectrum slicing is implemented in `PEPSTOAR` only.
 
    In the command-line option, two values must be provided. For an open interval,
-   one can give an infinite, e.g., -pep_interval 1.0,inf or -pep_interval -inf,1.0.
+   one can give an infinite, e.g., `-pep_interval 1.0,inf` or `-pep_interval -inf,1.0`.
    An open interval in the programmatic interface can be specified with
-   PETSC_MAX_REAL and -PETSC_MAX_REAL.
+   `PETSC_MAX_REAL` and -`PETSC_MAX_REAL`.
 
    Level: intermediate
 
-.seealso: PEPGetInterval(), PEPSetWhichEigenpairs()
+.seealso: [](ch:pep), [](#sec:qslice), `PEPGetInterval()`, `PEPSetWhichEigenpairs()`, `PEPSTOAR`
 @*/
 PetscErrorCode PEPSetInterval(PEP pep,PetscReal inta,PetscReal intb)
 {
@@ -742,7 +751,7 @@ PetscErrorCode PEPSetInterval(PEP pep,PetscReal inta,PetscReal intb)
    Not Collective
 
    Input Parameter:
-.  pep - eigensolver context
+.  pep - the polynomial eigensolver context
 
    Output Parameters:
 +  inta - left end of the interval
@@ -753,7 +762,7 @@ PetscErrorCode PEPSetInterval(PEP pep,PetscReal inta,PetscReal intb)
    Note:
    If the interval was not set by the user, then zeros are returned.
 
-.seealso: PEPSetInterval()
+.seealso: [](ch:pep), `PEPSetInterval()`
 @*/
 PetscErrorCode PEPGetInterval(PEP pep,PetscReal* inta,PetscReal* intb)
 {

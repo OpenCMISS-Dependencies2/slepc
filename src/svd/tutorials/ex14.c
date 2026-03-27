@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Solves a singular value problem with the matrix loaded from a file.\n"
+static char help[] = "Solves a singular value problem with the matrix loaded from a file.\n\n"
   "This example works for both real and complex numbers.\n\n"
   "The command line options are:\n"
   "  -file <filename>, where <filename> = matrix file in PETSc binary form.\n\n";
@@ -123,7 +123,7 @@ int main(int argc,char **argv)
          suffix: 1_scalapack
          nsize: {{1 2 3}}
          args: -svd_nsv 4 -svd_type scalapack
-         requires: scalapack
+         requires: scalapack !__float128
       test:
          suffix: 1_elemental
          nsize: {{1 2 3}}
@@ -157,7 +157,7 @@ int main(int argc,char **argv)
          suffix: 1_complex_scalapack
          nsize: {{1 2 3}}
          args: -svd_nsv 4 -svd_type scalapack
-         requires: scalapack
+         requires: scalapack !__float128
       test:
          suffix: 1_complex_elemental
          nsize: {{1 2 3}}

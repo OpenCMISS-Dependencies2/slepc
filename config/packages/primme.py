@@ -21,9 +21,9 @@ class Primme(package.Package):
     self.version        = '3.2.3'
     self.url            = 'https://github.com/primme/primme/archive/v'+self.version+'.tar.gz'
     self.archive        = 'primme-'+self.version+'.tar.gz'
-    self.supportssingle = True
     self.supports64bint = True
     self.hasheaders     = True
+    self.supportsprecis.append('single')
     self.ProcessArgs(argdb)
 
   def SampleCode(self,petsc):
@@ -56,7 +56,6 @@ class Primme(package.Package):
     code += '  primme_free(&primme);\n'
     code += '  return 0;\n}\n'
     return code
-
 
   def Check(self,slepcconf,slepcvars,petsc,archdir):
     code = self.SampleCode(petsc)
@@ -100,7 +99,6 @@ class Primme(package.Package):
 
     self.log.Exit('Unable to link with PRIMME library in directories'+' '.join(dirs)+' with libraries and link flags '+' '.join(libs)+' [NOTE: make sure PRIMME version is 2.0 at least]')
 
-
   def DownloadAndInstall(self,slepcconf,slepcvars,slepc,petsc,archdir,prefixdir):
     externdir = slepc.GetExternalPackagesDir(archdir)
     builddir  = self.Download(externdir,slepc.downloaddir)
@@ -111,7 +109,7 @@ class Primme(package.Package):
     cont += 'export SONAMELIBRARY = libprimme.'+petsc.sl_linker_suffix+'.'+self.version+'\n'
     cont += 'export CC            = '+petsc.cc+'\n'
     if hasattr(petsc,'fc'):
-      cont += 'export F77           = '+petsc.fc+'\n'
+      cont += 'export F77         = '+petsc.fc+'\n'
     cont += 'export DEFINES       = '
     if petsc.blaslapackmangling == 'underscore':
       cont += '-DF77UNDERSCORE '
@@ -163,7 +161,6 @@ class Primme(package.Package):
     self.havepackage = True
     self.packageflags = l+' '+f
 
-
   def LoadVersion(self,slepcconf):
     try:
       with open(os.path.join(self.location,'primme.h')) as f:
@@ -179,4 +176,3 @@ class Primme(package.Package):
         slepcconf.write('#define SLEPC_HAVE_PRIMME3 1\n')
     except Exception as e:
       self.log.write('Error while determining version of PRIMME:\n'+str(e))
-

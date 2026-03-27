@@ -23,10 +23,10 @@ class Arpack(package.Package):
     obj = self.version if hasattr(self,'version') else self.gitcommit
     self.url            = 'https://github.com/opencollab/arpack-ng/archive/'+obj+'.tar.gz'
     self.archive        = 'arpack-ng-'+obj+'.tar.gz'
-    self.supportssingle = True
     self.supports64bint = True
     self.fortran        = True
     self.hasheaders     = True   # the option --with-arpack-include=... is simply ignored
+    self.supportsprecis.append('single')
     self.ProcessArgs(argdb)
 
   def Functions(self,petsc):
@@ -54,7 +54,6 @@ class Arpack(package.Package):
           functions = ['pznaupd','pzneupd']
     return functions
 
-
   def Check(self,slepcconf,slepcvars,petsc,archdir):
     functions = self.Functions(petsc)
     if self.packagelibs:
@@ -73,7 +72,6 @@ class Arpack(package.Package):
     else:
       dirs = self.GenerateGuesses('Arpack',archdir) + self.GenerateGuesses('Arpack',archdir,'lib64')
     self.FortranLib(slepcconf,slepcvars,dirs,libs,functions)
-
 
   def DownloadAndInstall(self,slepcconf,slepcvars,slepc,petsc,archdir,prefixdir):
     externdir = slepc.GetExternalPackagesDir(archdir)
@@ -128,4 +126,3 @@ class Arpack(package.Package):
       libs = [['-lparpack','-larpack']]
     dirs = [os.path.join(prefixdir,'lib'),os.path.join(prefixdir,'lib64')]
     self.FortranLib(slepcconf,slepcvars,dirs,libs,functions)
-

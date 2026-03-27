@@ -182,10 +182,17 @@ static PetscErrorCode FNView_Combine(FN fn,PetscViewer viewer)
 {
   FN_COMBINE     *ctx = (FN_COMBINE*)fn->data;
   PetscBool      isascii;
+  char           str[50];
 
   PetscFunctionBegin;
   PetscCall(PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&isascii));
   if (isascii) {
+    if (fn->alpha!=(PetscScalar)1.0 || fn->beta!=(PetscScalar)1.0) {
+      PetscCall(SlepcSNPrintfScalar(str,sizeof(str),fn->alpha,PETSC_TRUE));
+      PetscCall(PetscViewerASCIIPrintf(viewer,"  scaling factors: inner %s",str));
+      PetscCall(SlepcSNPrintfScalar(str,sizeof(str),fn->beta,PETSC_TRUE));
+      PetscCall(PetscViewerASCIIPrintf(viewer,"outer %s\n",str));
+    }
     switch (ctx->comb) {
       case FN_COMBINE_ADD:
         PetscCall(PetscViewerASCIIPrintf(viewer,"  two added functions f1+f2\n"));
@@ -237,7 +244,7 @@ static PetscErrorCode FNCombineSetChildren_Combine(FN fn,FNCombineType comb,FN f
 
    Level: intermediate
 
-.seealso: FNCombineGetChildren()
+.seealso: [](sec:fn), `FNCOMBINE`, `FNCombineGetChildren()`
 @*/
 PetscErrorCode FNCombineSetChildren(FN fn,FNCombineType comb,FN f1,FN f2)
 {
@@ -283,7 +290,7 @@ static PetscErrorCode FNCombineGetChildren_Combine(FN fn,FNCombineType *comb,FN 
 
    Level: intermediate
 
-.seealso: FNCombineSetChildren()
+.seealso: [](sec:fn), `FNCOMBINE`, `FNCombineSetChildren()`
 @*/
 PetscErrorCode FNCombineGetChildren(FN fn,FNCombineType *comb,FN *f1,FN *f2)
 {
@@ -316,6 +323,16 @@ static PetscErrorCode FNDestroy_Combine(FN fn)
   PetscCall(PetscObjectComposeFunction((PetscObject)fn,"FNCombineGetChildren_C",NULL));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   FNCOMBINE - FNCOMBINE = "combine" - A mathematical function that is defined
+   by combining two previously defined functions, e.g., by addition. Use
+   `FNCombineSetChildren()` to specify which functions must be combined and how.
+
+   Level: beginner
+
+.seealso: [](sec:fn), `FN`, `FNType`, `FNSetType()`, `FNCombineSetChildren()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode FNCreate_Combine(FN fn)
 {

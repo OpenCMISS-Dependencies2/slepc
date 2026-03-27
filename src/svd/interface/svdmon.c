@@ -14,25 +14,6 @@
 #include <slepc/private/svdimpl.h>   /*I "slepcsvd.h" I*/
 #include <petscdraw.h>
 
-PetscErrorCode SVDMonitorLGCreate(MPI_Comm comm,const char host[],const char label[],const char metric[],PetscInt l,const char *names[],int x,int y,int m,int n,PetscDrawLG *lgctx)
-{
-  PetscDraw      draw;
-  PetscDrawAxis  axis;
-  PetscDrawLG    lg;
-
-  PetscFunctionBegin;
-  PetscCall(PetscDrawCreate(comm,host,label,x,y,m,n,&draw));
-  PetscCall(PetscDrawSetFromOptions(draw));
-  PetscCall(PetscDrawLGCreate(draw,l,&lg));
-  if (names) PetscCall(PetscDrawLGSetLegend(lg,names));
-  PetscCall(PetscDrawLGSetFromOptions(lg));
-  PetscCall(PetscDrawLGGetAxis(lg,&axis));
-  PetscCall(PetscDrawAxisSetLabels(axis,"Convergence","Iteration",metric));
-  PetscCall(PetscDrawDestroy(&draw));
-  *lgctx = lg;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
 /*
    Runs the user provided monitor routines, if any.
 */
@@ -52,74 +33,79 @@ PetscErrorCode SVDMonitor(SVD svd,PetscInt it,PetscInt nconv,PetscReal *sigma,Pe
    Logically Collective
 
    Input Parameters:
-+  svd     - singular value solver context obtained from SVDCreate()
-.  monitor - pointer to function (if this is NULL, it turns off monitoring)
-.  mctx    - [optional] context for private data for the
-             monitor routine (use NULL if no context is desired)
--  monitordestroy - [optional] routine that frees monitor context (may be NULL),
-             see PetscCtxDestroyFn for the calling sequence
-
-   Calling sequence of monitor:
-$  PetscErrorCode monitor(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,void *mctx)
-+  svd    - singular value solver context obtained from SVDCreate()
-.  its    - iteration number
-.  nconv  - number of converged singular triplets
-.  sigma  - singular values
-.  errest - relative error estimates for each singular triplet
-.  nest   - number of error estimates
--  mctx   - optional monitoring context, as set by SVDMonitorSet()
++  svd            - the singular value solver context
+.  monitor        - pointer to function (if this is `NULL`, it turns off monitoring),
+                    see `SVDMonitorFn`
+.  ctx            - [optional] context for private data for the monitor routine
+                    (use `NULL` if no context is desired)
+-  monitordestroy - [optional] routine that frees monitor context (may be `NULL`),
+                    see `PetscCtxDestroyFn` for the calling sequence
 
    Options Database Keys:
-+    -svd_monitor        - print only the first error estimate
-.    -svd_monitor_all    - print error estimates at each iteration
-.    -svd_monitor_conv   - print the singular value approximations only when
-      convergence has been reached
-.    -svd_monitor_conditioning - print the condition number when available
-.    -svd_monitor draw::draw_lg - sets line graph monitor for the first unconverged
-      approximate singular value
-.    -svd_monitor_all draw::draw_lg - sets line graph monitor for all unconverged
-      approximate singular values
-.    -svd_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
--    -svd_monitor_cancel - cancels all monitors that have been hardwired into
-      a code by calls to SVDMonitorSet(), but does not cancel those set via
-      the options database.
++  -svd_monitor                    - print only the first error estimate
+.  -svd_monitor_all                - print error estimates at each iteration
+.  -svd_monitor_conv               - print the singular value approximations only when
+                                     convergence has been reached
+.  -svd_monitor_conditioning       - print the condition number when available
+.  -svd_monitor draw::draw_lg      - sets line graph monitor for the first unconverged
+                                     approximate singular value
+.  -svd_monitor_all draw::draw_lg  - sets line graph monitor for all unconverged
+                                     approximate singular values
+.  -svd_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
+-  -svd_monitor_cancel             - cancels all monitors that have been hardwired into
+                                     a code by calls to `SVDMonitorSet()`, but does not cancel
+                                     those set via the options database.
 
    Notes:
-   Several different monitoring routines may be set by calling
-   SVDMonitorSet() multiple times; all will be called in the
-   order in which they were set.
+   The options database option `-svd_monitor` and related options are the easiest way
+   to turn on `SVD` iteration monitoring.
+
+   `SVDMonitorRegister()` provides a way to associate an options database key with `SVD`
+   monitor function.
+
+   Several different monitoring routines may be set by calling `SVDMonitorSet()` multiple
+   times; all will be called in the order in which they were set.
+
+   Fortran Note:
+   Only a single monitor function can be set for each `SVD` object.
 
    Level: intermediate
 
-.seealso: SVDMonitorFirst(), SVDMonitorAll(), SVDMonitorConditioning(), SVDMonitorCancel()
+.seealso: [](ch:svd), `SVDMonitorFirst()`, `SVDMonitorAll()`, `SVDMonitorConverged()`, `SVDMonitorConditioning()`, `SVDMonitorFirstDrawLG()`, `SVDMonitorAllDrawLG()`, `SVDMonitorConvergedDrawLG()`, `SVDMonitorCancel()`
 @*/
-PetscErrorCode SVDMonitorSet(SVD svd,PetscErrorCode (*monitor)(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,void *mctx),void *mctx,PetscCtxDestroyFn *monitordestroy)
+PetscErrorCode SVDMonitorSet(SVD svd,SVDMonitorFn *monitor,PetscCtx ctx,PetscCtxDestroyFn *monitordestroy)
 {
+  PetscInt  i;
+  PetscBool identical;
+
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
+  for (i=0;i<svd->numbermonitors;i++) {
+    PetscCall(PetscMonitorCompare((PetscErrorCode(*)(void))(PetscVoidFn*)monitor,ctx,monitordestroy,(PetscErrorCode (*)(void))(PetscVoidFn*)svd->monitor[i],svd->monitorcontext[i],svd->monitordestroy[i],&identical));
+    if (identical) PetscFunctionReturn(PETSC_SUCCESS);
+  }
   PetscCheck(svd->numbermonitors<MAXSVDMONITORS,PetscObjectComm((PetscObject)svd),PETSC_ERR_ARG_OUTOFRANGE,"Too many SVD monitors set");
   svd->monitor[svd->numbermonitors]           = monitor;
-  svd->monitorcontext[svd->numbermonitors]    = (void*)mctx;
+  svd->monitorcontext[svd->numbermonitors]    = ctx;
   svd->monitordestroy[svd->numbermonitors++]  = monitordestroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@
-   SVDMonitorCancel - Clears all monitors for an SVD object.
+   SVDMonitorCancel - Clears all monitors for an `SVD` object.
 
    Logically Collective
 
-   Input Parameters:
-.  svd - singular value solver context obtained from SVDCreate()
+   Input Parameter:
+.  svd - the singular value solver context
 
    Options Database Key:
-.    -svd_monitor_cancel - Cancels all monitors that have been hardwired
-      into a code by calls to SVDMonitorSet(),
-      but does not cancel those set via the options database.
+.  -svd_monitor_cancel - cancels all monitors that have been hardwired into a code by calls to
+                         `SVDMonitorSet()`, but does not cancel those set via the options database.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`
 @*/
 PetscErrorCode SVDMonitorCancel(SVD svd)
 {
@@ -136,21 +122,21 @@ PetscErrorCode SVDMonitorCancel(SVD svd)
 
 /*@C
    SVDGetMonitorContext - Gets the monitor context, as set by
-   SVDMonitorSet() for the FIRST monitor only.
+   `SVDMonitorSet()` for the FIRST monitor only.
 
    Not Collective
 
    Input Parameter:
-.  svd - singular value solver context obtained from SVDCreate()
+.  svd - the singular value solver context
 
    Output Parameter:
 .  ctx - monitor context
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`
 @*/
-PetscErrorCode SVDGetMonitorContext(SVD svd,void *ctx)
+PetscErrorCode SVDGetMonitorContext(SVD svd,PetscCtxRt ctx)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
@@ -165,7 +151,7 @@ PetscErrorCode SVDGetMonitorContext(SVD svd,void *ctx)
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -174,13 +160,17 @@ PetscErrorCode SVDGetMonitorContext(SVD svd,void *ctx)
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor - activates SVDMonitorFirst()
+.  -svd_monitor - activates `SVDMonitorFirst()`
+
+   Note:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet(), SVDMonitorAll(), SVDMonitorConditioning(), SVDMonitorConverged()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorAll()`, `SVDMonitorConditioning()`, `SVDMonitorConverged()`
 @*/
-PetscErrorCode SVDMonitorFirst(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorFirst(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
 
@@ -208,7 +198,7 @@ PetscErrorCode SVDMonitorFirst(SVD svd,PetscInt its,PetscInt nconv,PetscReal *si
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -217,13 +207,17 @@ PetscErrorCode SVDMonitorFirst(SVD svd,PetscInt its,PetscInt nconv,PetscReal *si
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor_all - activates SVDMonitorAll()
+.  -svd_monitor_all - activates `SVDMonitorAll()`
+
+   Note:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet(), SVDMonitorFirst(), SVDMonitorConditioning(), SVDMonitorConverged()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorFirst()`, `SVDMonitorConditioning()`, `SVDMonitorConverged()`
 @*/
-PetscErrorCode SVDMonitorAll(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorAll(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscInt       i;
   PetscViewer    viewer = vf->viewer;
@@ -251,7 +245,7 @@ PetscErrorCode SVDMonitorAll(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigm
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -260,28 +254,33 @@ PetscErrorCode SVDMonitorAll(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigm
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor_conv - activates SVDMonitorConverged()
+.  -svd_monitor_conv - activates `SVDMonitorConverged()`
+
+   Notes:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
+
+   Call `SVDMonitorConvergedCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet(), SVDMonitorFirst(), SVDMonitorConditioning(), SVDMonitorAll()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorConvergedCreate()`, `SVDMonitorFirst()`, `SVDMonitorConditioning()`, `SVDMonitorAll()`
 @*/
-PetscErrorCode SVDMonitorConverged(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorConverged(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
-  PetscInt       i;
+  PetscInt       i,*oldnconv;
   PetscViewer    viewer = vf->viewer;
-  SlepcConvMon   ctx;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,7);
-  ctx = (SlepcConvMon)vf->data;
+  oldnconv = (PetscInt*)vf->data;
   if (its==1 && ((PetscObject)svd)->prefix) PetscCall(PetscViewerASCIIPrintf(viewer,"  Convergence history for %s solve.\n",((PetscObject)svd)->prefix));
-  if (its==1) ctx->oldnconv = 0;
-  if (ctx->oldnconv!=nconv) {
+  if (its==1) *oldnconv = 0;
+  if (*oldnconv!=nconv) {
     PetscCall(PetscViewerPushFormat(viewer,vf->format));
     PetscCall(PetscViewerASCIIAddTab(viewer,((PetscObject)svd)->tablevel));
-    for (i=ctx->oldnconv;i<nconv;i++) {
+    for (i=*oldnconv;i<nconv;i++) {
       PetscCall(PetscViewerASCIIPrintf(viewer,"%3" PetscInt_FMT " SVD converged value (error) #%" PetscInt_FMT,its,i));
       PetscCall(PetscViewerASCIIUseTabs(viewer,PETSC_FALSE));
       PetscCall(PetscViewerASCIIPrintf(viewer," %g (%10.8e)\n",(double)sigma[i],(double)errest[i]));
@@ -289,31 +288,37 @@ PetscErrorCode SVDMonitorConverged(SVD svd,PetscInt its,PetscInt nconv,PetscReal
     }
     PetscCall(PetscViewerASCIISubtractTab(viewer,((PetscObject)svd)->tablevel));
     PetscCall(PetscViewerPopFormat(viewer));
-    ctx->oldnconv = nconv;
+    *oldnconv = nconv;
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SVDMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
+/*@C
+   SVDMonitorConvergedCreate - Creates the context for the convergence history monitor.
+
+   Collective
+
+   Input Parameters:
++  viewer - the viewer
+.  format - the viewer format
+-  ctx    - an optional user context
+
+   Output Parameter:
+.  vf     - the viewer and format context
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDMonitorSet()`
+@*/
+PetscErrorCode SVDMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,PetscCtx ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
-PetscErrorCode SVDMonitorConvergedDestroy(PetscViewerAndFormat **vf)
-{
-  PetscFunctionBegin;
-  if (!*vf) PetscFunctionReturn(PETSC_SUCCESS);
-  PetscCall(PetscFree((*vf)->data));
-  PetscCall(PetscViewerDestroy(&(*vf)->viewer));
-  PetscCall(PetscDrawLGDestroy(&(*vf)->lg));
-  PetscCall(PetscFree(*vf));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -324,7 +329,7 @@ PetscErrorCode SVDMonitorConvergedDestroy(PetscViewerAndFormat **vf)
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -333,23 +338,29 @@ PetscErrorCode SVDMonitorConvergedDestroy(PetscViewerAndFormat **vf)
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor draw::draw_lg - activates SVDMonitorFirstDrawLG()
+.  -svd_monitor draw::draw_lg - activates `SVDMonitorFirstDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
+
+   Call `SVDMonitorFirstDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorFirstDrawLGCreate()`
 @*/
-PetscErrorCode SVDMonitorFirstDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorFirstDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscReal      x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,7);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,7);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -384,14 +395,14 @@ PetscErrorCode SVDMonitorFirstDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscRe
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`
 @*/
 PetscErrorCode SVDMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(SVDMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -402,7 +413,7 @@ PetscErrorCode SVDMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -411,24 +422,30 @@ PetscErrorCode SVDMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor_all draw::draw_lg - activates SVDMonitorAllDrawLG()
+.  -svd_monitor_all draw::draw_lg - activates `SVDMonitorAllDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
+
+   Call `SVDMonitorAllDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorAllDrawLGCreate()`
 @*/
-PetscErrorCode SVDMonitorAllDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorAllDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscInt       i,n = PetscMin(svd->nsv,255);
   PetscReal      *x,*y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,7);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,7);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,n));
@@ -465,14 +482,14 @@ PetscErrorCode SVDMonitorAllDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`
 @*/
 PetscErrorCode SVDMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(SVDMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -483,7 +500,7 @@ PetscErrorCode SVDMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - number of converged singular triplets so far
 .  sigma  - singular values
@@ -492,23 +509,29 @@ PetscErrorCode SVDMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor_conv draw::draw_lg - activates SVDMonitorConvergedDrawLG()
+.  -svd_monitor_conv draw::draw_lg - activates `SVDMonitorConvergedDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
+
+   Call `SVDMonitorConvergedDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorConvergedDrawLGCreate()`
 @*/
-PetscErrorCode SVDMonitorConvergedDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorConvergedDrawLG(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer      viewer = vf->viewer;
-  PetscDrawLG      lg = vf->lg;
+  PetscDrawLG      lg;
   PetscReal        x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(svd,SVD_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,7);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,7);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -540,18 +563,18 @@ PetscErrorCode SVDMonitorConvergedDrawLG(SVD svd,PetscInt its,PetscInt nconv,Pet
 
    Level: intermediate
 
-.seealso: SVDMonitorSet()
+.seealso: [](ch:svd), `SVDMonitorSet()`
 @*/
 PetscErrorCode SVDMonitorConvergedDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscCall(SVDMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -562,7 +585,7 @@ PetscErrorCode SVDMonitorConvergedDrawLGCreate(PetscViewer viewer,PetscViewerFor
    Collective
 
    Input Parameters:
-+  svd    - singular value solver context
++  svd    - the singular value solver context
 .  its    - iteration number
 .  nconv  - (unused) number of converged singular triplets so far
 .  sigma  - (unused) singular values
@@ -571,17 +594,20 @@ PetscErrorCode SVDMonitorConvergedDrawLGCreate(PetscViewer viewer,PetscViewerFor
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -svd_monitor_conditioning - activates SVDMonitorConditioning()
+.  -svd_monitor_conditioning - activates `SVDMonitorConditioning()`
 
-   Note:
-   Works only for solvers that use a DS of type GSVD. The printed information corresponds
+   Notes:
+   This is not called directly by users, rather one calls `SVDMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `SVD` solve.
+
+   Works only for solvers that use a `DS` of type `DSGSVD`. The printed information corresponds
    to the maximum of the condition number of the two generated bidiagonal matrices.
 
    Level: intermediate
 
-.seealso: SVDMonitorSet(), SVDMonitorAll(), SVDMonitorFirst(), SVDMonitorConverged()
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorAll()`, `SVDMonitorFirst()`, `SVDMonitorConverged()`
 @*/
-PetscErrorCode SVDMonitorConditioning(SVD svd,PetscInt its,PetscInt nconv,PetscReal *sigma,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode SVDMonitorConditioning(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer viewer = vf->viewer;
   PetscBool   isgsvd;

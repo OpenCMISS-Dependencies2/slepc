@@ -8,7 +8,6 @@
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 
-from __future__ import print_function
 import os, sys, tempfile, shutil, tarfile
 import log, argdb
 from urllib.request import urlretrieve
@@ -36,12 +35,13 @@ class Package:
     self.buildflags      = ''
     self.log             = log
     self.supportsscalar  = ['real', 'complex']
-    self.supportssingle  = False
+    self.supportsprecis  = ['double']
     self.supports64bint  = False
     self.fortran         = False
     self.hasheaders      = False
     self.requested       = False
     self.havepackage     = False
+    self.skippackage     = False
 
   def RunCommand(self,instr):
     try:
@@ -99,7 +99,7 @@ class Package:
         self.packageurl = url
         self.downloadpackage = flag
       if flagsfound:
-        if not hasattr(self,'download') or not self.download:
+        if not getattr(self,'download',False):
           if self.packagetype == 'gnu':
             self.log.Exit('--download-'+self.packagename+'-configure-arguments must be used together with --download-'+self.packagename)
           elif self.packagetype == 'cmake':
@@ -127,7 +127,8 @@ class Package:
         if petsc.buildsharedlib:
           self.packagelibs = self.DistilLibList(self.packagelibs,petsc)
         self.Check(slepcconf,slepcvars,petsc,archdir)
-        if not self.havepackage: self.log.setLastFailed()
+        if self.skippackage: self.log.setLastStatus('skipped')
+        elif not self.havepackage: self.log.setLastStatus('failed')
       try:
         self.LoadVersion(slepcconf)
         self.log.write('Version number for '+name+' is '+self.iversion)
@@ -146,11 +147,8 @@ class Package:
     elif petsc.scalar == 'real':
       if 'real' not in self.supportsscalar:
         self.log.Exit(package+' is supported only with complex scalars')
-    if petsc.precision == 'single':
-      if not self.supportssingle:
-        self.log.Exit(package+' is supported only in double precision')
-    elif petsc.precision != 'double':
-      self.log.Exit('Precision '+petsc.precision+' is not supported for external packages')
+    if not petsc.precision in self.supportsprecis:
+      self.log.Exit(package+' does not support '+petsc.precision+' precision')
     if petsc.ind64 and not self.supports64bint:
       self.log.Exit(package+' cannot be used with 64-bit integers')
     if self.downloadpackage and self.fortran and not hasattr(petsc,'fc'):
@@ -211,7 +209,7 @@ class Package:
 
   def MissingTarball(self,downloaddir):
     '''Check if tarball is missing in downloaddir'''
-    if self.downloadable and hasattr(self,'download') and self.download:
+    if self.downloadable and getattr(self,'download',False):
       localFile = os.path.join(downloaddir,self.GetArchiveName())
       if not os.path.exists(localFile):
         url = self.packageurl
@@ -335,7 +333,7 @@ Downloaded package %s from: %s is not a tarball.
       elif self.packagetype == 'source_c':
         print(('  --download-'+self.packagename+'-cflags=<flags>').ljust(wd)+': Indicate extra flags to compile '+self.packagename.upper())
     if self.installable:
-      print(('  --with-'+self.packagename+'=<bool>').ljust(wd)+': Test for '+self.packagename.upper()+(' (requires PETSc with %s)'%self.petscdepend.upper() if hasattr(self,'petscdepend') else ''))
+      print(('  --with-'+self.packagename+'=<bool>').ljust(wd)+': Test for '+self.packagename.upper()+' (requires PETSc with %s)'%getattr(self,'petscdepend','').upper())
     if self.installable and not hasattr(self,'petscdepend'):
       print(('  --with-'+self.packagename+'-dir=<dir>').ljust(wd)+': Indicate the root directory of the '+self.packagename.upper()+' installation')
       print(('  --with-'+self.packagename+'-lib=<libraries>').ljust(wd)+': Indicate quoted list of libraries and link flags for '+self.packagename.upper())
@@ -513,4 +511,3 @@ Downloaded package %s from: %s is not a tarball.
           self.log.write('Found '+os.path.join(d,file))
           return d
     return '/usr/include'
-

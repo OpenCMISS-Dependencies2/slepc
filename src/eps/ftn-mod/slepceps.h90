@@ -1,0 +1,44 @@
+!
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!  SLEPc - Scalable Library for Eigenvalue Problem Computations
+!  Copyright (c) 2002-, Universitat Politecnica de Valencia, Spain
+!
+!  This file is part of SLEPc.
+!  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!
+interface
+  subroutine EPSKrylovSchurGetSubintervals(eps, subint, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tEPS
+    EPS eps
+    PetscReal subint(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+
+  subroutine EPSKrylovSchurGetInertias(eps, n, shifts, inertias, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tEPS
+    EPS eps
+    PetscInt n
+    PetscReal shifts(*)
+    PetscInt inertias(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+
+  subroutine EPSMonitorConvergedCreate(viewer, format, ctx, vf, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tPetscViewer, ePetscViewerFormat
+    PetscViewer viewer
+    PetscViewerFormat format
+    type(*) ctx
+    PetscViewerAndFormat vf
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+end interface
+
+#if defined(_WIN32) && defined(PETSC_USE_SHARED_LIBRARIES)
+!DEC$ ATTRIBUTES DLLEXPORT::EPSKrylovSchurGetSubintervals
+!DEC$ ATTRIBUTES DLLEXPORT::EPSKrylovSchurGetInertias
+!DEC$ ATTRIBUTES DLLEXPORT::EPSMonitorConvergedCreate
+#endif

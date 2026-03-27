@@ -3,10 +3,7 @@ cdef extern from * nogil:
     enum: PETSC_DECIDE
     enum: PETSC_DEFAULT
     enum: PETSC_DETERMINE
-
-    ctypedef enum PetscBool:
-        PETSC_TRUE,  PETSC_YES,
-        PETSC_FALSE, PETSC_NO,
+    enum: PETSC_CURRENT
 
     ctypedef const char* PetscVecType "VecType"
 

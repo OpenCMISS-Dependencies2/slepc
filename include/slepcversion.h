@@ -8,17 +8,19 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-#ifndef SLEPCVERSION_H
+#if !defined(SLEPCVERSION_H)
 #define SLEPCVERSION_H
+
+/* MANSEC = Sys */
 
 #define SLEPC_VERSION_RELEASE    0
 #define SLEPC_VERSION_MAJOR      3
-#define SLEPC_VERSION_MINOR      22
-#define SLEPC_VERSION_SUBMINOR   2
-#define SLEPC_RELEASE_DATE       "September 29, 2024"
+#define SLEPC_VERSION_MINOR      24
+#define SLEPC_VERSION_SUBMINOR   3
+#define SLEPC_RELEASE_DATE       "September 30, 2025"
 #define SLEPC_VERSION_DATE       "unknown"
 
-#if !defined (SLEPC_VERSION_GIT)
+#if !defined(SLEPC_VERSION_GIT)
 #define SLEPC_VERSION_GIT        "unknown"
 #endif
 

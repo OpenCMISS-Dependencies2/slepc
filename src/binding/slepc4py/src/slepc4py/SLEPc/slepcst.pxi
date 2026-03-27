@@ -40,6 +40,9 @@ cdef extern from * nogil:
     PetscErrorCode STGetMatStructure(SlepcST,PetscMatStructure*)
     PetscErrorCode STSetPreconditionerMat(SlepcST,PetscMat)
     PetscErrorCode STGetPreconditionerMat(SlepcST,PetscMat*)
+    PetscErrorCode STSetSplitPreconditioner(SlepcST,PetscInt,PetscMat*,PetscMatStructure)
+    PetscErrorCode STGetSplitPreconditionerTerm(SlepcST,PetscInt,PetscMat*)
+    PetscErrorCode STGetSplitPreconditionerInfo(SlepcST,PetscInt*,PetscMatStructure*)
 
     PetscErrorCode STSetTransform(SlepcST,PetscBool)
     PetscErrorCode STGetTransform(SlepcST,PetscBool*)
@@ -56,10 +59,24 @@ cdef extern from * nogil:
     PetscErrorCode STCayleySetAntishift(SlepcST,PetscScalar)
     PetscErrorCode STCayleyGetAntishift(SlepcST,PetscScalar*)
 
+    ctypedef enum SlepcSTFilterType "STFilterType":
+        ST_FILTER_FILTLAN
+        ST_FILTER_CHEBYSHEV
+
+    ctypedef enum SlepcSTFilterDamping "STFilterDamping":
+        ST_FILTER_DAMPING_NONE
+        ST_FILTER_DAMPING_JACKSON
+        ST_FILTER_DAMPING_LANCZOS
+        ST_FILTER_DAMPING_FEJER
+
+    PetscErrorCode STFilterSetType(SlepcST,SlepcSTFilterType);
+    PetscErrorCode STFilterGetType(SlepcST,SlepcSTFilterType*);
     PetscErrorCode STFilterSetInterval(SlepcST,PetscReal,PetscReal)
     PetscErrorCode STFilterGetInterval(SlepcST,PetscReal*,PetscReal*)
     PetscErrorCode STFilterSetRange(SlepcST,PetscReal,PetscReal)
     PetscErrorCode STFilterGetRange(SlepcST,PetscReal*,PetscReal*)
     PetscErrorCode STFilterSetDegree(SlepcST,PetscInt)
     PetscErrorCode STFilterGetDegree(SlepcST,PetscInt*)
+    PetscErrorCode STFilterSetDamping(SlepcST,SlepcSTFilterDamping);
+    PetscErrorCode STFilterGetDamping(SlepcST,SlepcSTFilterDamping*);
 

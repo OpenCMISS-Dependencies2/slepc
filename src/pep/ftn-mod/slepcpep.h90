@@ -1,0 +1,35 @@
+!
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!  SLEPc - Scalable Library for Eigenvalue Problem Computations
+!  Copyright (c) 2002-, Universitat Politecnica de Valencia, Spain
+!
+!  This file is part of SLEPc.
+!  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!
+interface
+  subroutine PEPSTOARGetInertias(pep, n, shifts, inertias, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tPEP
+    PEP pep
+    PetscInt n
+    PetscReal shifts(*)
+    PetscInt inertias(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+
+  subroutine PEPMonitorConvergedCreate(viewer, format, ctx, vf, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tPetscViewer, ePetscViewerFormat
+    PetscViewer viewer
+    PetscViewerFormat format
+    type(*) ctx
+    PetscViewerAndFormat vf
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+end interface
+
+#if defined(_WIN32) && defined(PETSC_USE_SHARED_LIBRARIES)
+!DEC$ ATTRIBUTES DLLEXPORT::PEPSTOARGetInertias
+!DEC$ ATTRIBUTES DLLEXPORT::PEPMonitorConvergedCreate
+#endif

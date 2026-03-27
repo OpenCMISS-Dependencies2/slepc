@@ -1,0 +1,32 @@
+!
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!  SLEPc - Scalable Library for Eigenvalue Problem Computations
+!  Copyright (c) 2002-, Universitat Politecnica de Valencia, Spain
+!
+!  This file is part of SLEPc.
+!  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!
+interface
+  subroutine FNRationalGetNumerator(fn, np, pcoeffs, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tFN
+    FN fn
+    PetscInt np
+    PetscScalar pcoeffs(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+
+  subroutine FNRationalGetDenominator(fn, nq, qcoeffs, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tFN
+    FN fn
+    PetscInt nq
+    PetscScalar qcoeffs(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+end interface
+#if defined(_WIN32) && defined(PETSC_USE_SHARED_LIBRARIES)
+!DEC$ ATTRIBUTES DLLEXPORT::FNRationalGetNumerator
+!DEC$ ATTRIBUTES DLLEXPORT::FNRationalGetDenominator
+#endif

@@ -16,7 +16,7 @@
 
 #include <petscsys.h>
 
-/* SUBMANSEC = sys */
+/* SUBMANSEC = Sys */
 
 #if defined(slepc_EXPORTS)
 #define SLEPC_VISIBILITY_PUBLIC PETSC_DLLEXPORT
@@ -78,11 +78,6 @@
 #include <slepcvec.h>
 
 /*
-    Context for monitors of type XXXMonitorConverged
-*/
-typedef struct _n_SlepcConvMon* SlepcConvMon;
-
-/*
     Initialization of SLEPc and other system routines
 */
 SLEPC_EXTERN PetscErrorCode SlepcInitialize(int*,char***,const char[],const char[]);
@@ -96,7 +91,7 @@ SLEPC_EXTERN PetscErrorCode SlepcGetVersion(char[],size_t);
 SLEPC_EXTERN PetscErrorCode SlepcGetVersionNumber(PetscInt*,PetscInt*,PetscInt*,PetscInt*);
 SLEPC_EXTERN PetscErrorCode SlepcHasExternalPackage(const char[],PetscBool*);
 
-SLEPC_EXTERN PetscErrorCode SlepcSNPrintfScalar(char*,size_t,PetscScalar,PetscBool);
+SLEPC_EXTERN PetscErrorCode SlepcSNPrintfScalar(char[],size_t,PetscScalar,PetscBool);
 
 SLEPC_EXTERN PetscBool SlepcInitializeCalled;
 SLEPC_EXTERN PetscBool SlepcFinalizeCalled;

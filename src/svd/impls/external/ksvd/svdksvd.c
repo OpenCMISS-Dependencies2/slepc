@@ -90,13 +90,13 @@ static PetscErrorCode SVDSolve_KSVD(SVD svd)
 
   PetscCall(PetscFPTrapPush(PETSC_FP_TRAP_OFF));
   /* allocate workspace */
-  PetscStackCallExternalVoid("pdgeqsvd",pdgeqsvd("V","V",eigen,a->M,a->N,a->loc,one,one,a->desc,svd->sigma,z->loc,one,one,z->desc,q->loc,one,one,q->desc,&minlwork,lwork,&minliwork,liwork,&info));
+  PetscCallExternalVoid("pdgeqsvd",pdgeqsvd("V","V",eigen,a->M,a->N,a->loc,one,one,a->desc,svd->sigma,z->loc,one,one,z->desc,q->loc,one,one,q->desc,&minlwork,lwork,&minliwork,liwork,&info));
   PetscCheck(!info,PetscObjectComm((PetscObject)svd),PETSC_ERR_LIB,"Error in KSVD subroutine pdgeqsvd: info=%d",(int)info);
   PetscCall(PetscBLASIntCast((PetscInt)minlwork,&lwork));
   PetscCall(PetscBLASIntCast(minliwork,&liwork));
   PetscCall(PetscMalloc2(lwork,&work,liwork,&iwork));
   /* call computational routine */
-  PetscStackCallExternalVoid("pdgeqsvd",pdgeqsvd("V","V",eigen,a->M,a->N,a->loc,one,one,a->desc,svd->sigma,z->loc,one,one,z->desc,q->loc,one,one,q->desc,work,lwork,iwork,liwork,&info));
+  PetscCallExternalVoid("pdgeqsvd",pdgeqsvd("V","V",eigen,a->M,a->N,a->loc,one,one,a->desc,svd->sigma,z->loc,one,one,z->desc,q->loc,one,one,q->desc,work,lwork,iwork,liwork,&info));
   PetscCheck(!info,PetscObjectComm((PetscObject)svd),PETSC_ERR_LIB,"Error in KSVD subroutine pdgeqsvd: info=%d",(int)info);
   PetscCall(PetscFree2(work,iwork));
   PetscCall(PetscFPTrapPop());
@@ -155,7 +155,7 @@ static PetscErrorCode SVDView_KSVD(SVD svd,PetscViewer viewer)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode SVDSetFromOptions_KSVD(SVD svd,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode SVDSetFromOptions_KSVD(SVD svd,PetscOptionItems PetscOptionsObject)
 {
   SVD_KSVD           *ctx = (SVD_KSVD*)svd->data;
   SVDKSVDEigenMethod eigen;
@@ -193,13 +193,13 @@ static PetscErrorCode SVDKSVDSetEigenMethod_KSVD(SVD svd,SVDKSVDEigenMethod eige
 -  eigen - method that will be used by KSVD for the eigenproblem
 
    Options Database Key:
-.  -svd_ksvd_eigen_method - Sets the method for the KSVD eigensolver
+.  -svd_ksvd_eigen_method (mrrr|dc|elpa) - sets the method for the KSVD eigensolver
 
-   If not set, the method defaults to SVD_KSVD_EIGEN_MRRR.
+   If not set, the method defaults to `SVD_KSVD_EIGEN_MRRR`.
 
    Level: advanced
 
-.seealso: SVDKSVDGetEigenMethod(), SVDKSVDEigenMethod
+.seealso: [](ch:svd), `SVDKSVD`, `SVDKSVDGetEigenMethod()`, `SVDKSVDEigenMethod`
 @*/
 PetscErrorCode SVDKSVDSetEigenMethod(SVD svd,SVDKSVDEigenMethod eigen)
 {
@@ -232,7 +232,7 @@ static PetscErrorCode SVDKSVDGetEigenMethod_KSVD(SVD svd,SVDKSVDEigenMethod *eig
 
    Level: advanced
 
-.seealso: SVDKSVDSetEigenMethod(), SVDKSVDEigenMethod
+.seealso: [](ch:svd), `SVDKSVD`, `SVDKSVDSetEigenMethod()`, `SVDKSVDEigenMethod`
 @*/
 PetscErrorCode SVDKSVDGetEigenMethod(SVD svd,SVDKSVDEigenMethod *eigen)
 {
@@ -262,13 +262,13 @@ static PetscErrorCode SVDKSVDSetPolarMethod_KSVD(SVD svd,SVDKSVDPolarMethod pola
 -  polar - method that will be used by KSVD for the polar decomposition
 
    Options Database Key:
-.  -svd_ksvd_polar_method - Sets the method for the KSVD polar decomposition
+.  -svd_ksvd_polar_method (qdwh|zolopd) - sets the method for the KSVD polar decomposition
 
-   If not set, the method defaults to SVD_KSVD_POLAR_QDWH.
+   If not set, the method defaults to `SVD_KSVD_POLAR_QDWH`.
 
    Level: advanced
 
-.seealso: SVDKSVDGetPolarMethod(), SVDKSVDPolarMethod
+.seealso: [](ch:svd), `SVDKSVD`, `SVDKSVDGetPolarMethod()`, `SVDKSVDPolarMethod`
 @*/
 PetscErrorCode SVDKSVDSetPolarMethod(SVD svd,SVDKSVDPolarMethod polar)
 {
@@ -301,7 +301,7 @@ static PetscErrorCode SVDKSVDGetPolarMethod_KSVD(SVD svd,SVDKSVDPolarMethod *pol
 
    Level: advanced
 
-.seealso: SVDKSVDSetPolarMethod(), SVDKSVDPolarMethod
+.seealso: [](ch:svd), `SVDKSVD`, `SVDKSVDSetPolarMethod()`, `SVDKSVDPolarMethod`
 @*/
 PetscErrorCode SVDKSVDGetPolarMethod(SVD svd,SVDKSVDPolarMethod *polar)
 {
@@ -312,6 +312,26 @@ PetscErrorCode SVDKSVDGetPolarMethod(SVD svd,SVDKSVDPolarMethod *polar)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   SVDKSVD - SVDKSVD = "ksvd" - A wrapper to the KSVD singular value
+   solver {cite:p}`Suk19`.
+
+   Notes:
+   Only available for standard SVD problems.
+
+   This is a direct singular value solver, that is, the full decomposition
+   is computed. The computation involves redistributing the matrices from PETSc
+   storage to ScaLAPACK distribution, and vice versa (this is done automatically
+   by SLEPc). Alternatively, the user may create the problem matrices
+   already with type `MATSCALAPACK`.
+
+   The implemented method is supposed to be more scalable than the one
+   in `SVDSCALAPACK`.
+
+   Level: beginner
+
+.seealso: [](ch:svd), `SVD`, `SVDType`, `SVDSetType()`, `SVDSCALAPACK`
+M*/
 SLEPC_EXTERN PetscErrorCode SVDCreate_KSVD(SVD svd)
 {
   SVD_KSVD  *ctx;

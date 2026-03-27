@@ -15,15 +15,25 @@
 #include <slepc/private/stimpl.h>        /*I "slepcst.h" I*/
 
 typedef struct {
-  void           *ctx;                       /* user provided context */
-  PetscErrorCode (*apply)(ST,Vec,Vec);
-  PetscErrorCode (*applytrans)(ST,Vec,Vec);
-  PetscErrorCode (*applyhermtrans)(ST,Vec,Vec);
-  PetscErrorCode (*backtransform)(ST,PetscInt n,PetscScalar*,PetscScalar*);
+  void                             *ctx;        /* user-provided context */
+  STShellDestroyFn                 *destroy;    /* context destroy */
+  STShellApplyFn                   *apply;
+  STShellApplyTransposeFn          *applytrans;
+  STShellApplyHermitianTransposeFn *applyhermtrans;
+  STShellBackTransformFn           *backtransform;
 } ST_SHELL;
 
+static PetscErrorCode STShellGetContext_Shell(ST st,PetscCtxRt ctx)
+{
+  ST_SHELL *shell = (ST_SHELL*)st->data;
+
+  PetscFunctionBegin;
+  *(void**)ctx = shell->ctx;
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
 /*@C
-   STShellGetContext - Returns the user-provided context associated with a shell ST
+   STShellGetContext - Returns the user-provided context associated with an `STSHELL`.
 
    Not Collective
 
@@ -35,31 +45,34 @@ typedef struct {
 
    Level: advanced
 
-   Notes:
-   This routine is intended for use within various shell routines
-
-.seealso: STShellSetContext()
+.seealso: [](ch:st), `STSHELL`, `STShellSetContext()`
 @*/
-PetscErrorCode STShellGetContext(ST st,void *ctx)
+PetscErrorCode STShellGetContext(ST st,PetscCtxRt ctx)
 {
-  PetscBool      flg;
-
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
   PetscAssertPointer(ctx,2);
-  PetscCall(PetscObjectTypeCompare((PetscObject)st,STSHELL,&flg));
-  if (!flg) *(void**)ctx = NULL;
-  else      *(void**)ctx = ((ST_SHELL*)st->data)->ctx;
+  PetscUseMethod(st,"STShellGetContext_C",(ST,PetscCtxRt),(st,ctx));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+static PetscErrorCode STShellSetContext_Shell(ST st,PetscCtx ctx)
+{
+  ST_SHELL *shell = (ST_SHELL*)st->data;
+
+  PetscFunctionBegin;
+  if (shell->destroy) PetscCall((*shell->destroy)(st));
+  shell->ctx = ctx;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@
-   STShellSetContext - Sets the context for a shell ST
+   STShellSetContext - Sets the user-defined context for an `STSHELL`.
 
    Logically Collective
 
    Input Parameters:
-+  st - the shell ST
++  st  - the shell `ST`
 -  ctx - the context
 
    Level: advanced
@@ -67,19 +80,45 @@ PetscErrorCode STShellGetContext(ST st,void *ctx)
    Fortran Notes:
    To use this from Fortran you must write a Fortran interface definition
    for this function that tells Fortran the Fortran derived data type that
-   you are passing in as the ctx argument.
+   you are passing in as the `ctx` argument.
 
-.seealso: STShellGetContext()
+.seealso: [](ch:st), `STSHELL`, `STShellGetContext()`, `STShellSetDestroy()`
 @*/
-PetscErrorCode STShellSetContext(ST st,void *ctx)
+PetscErrorCode STShellSetContext(ST st,PetscCtx ctx)
 {
-  ST_SHELL       *shell = (ST_SHELL*)st->data;
-  PetscBool      flg;
-
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
-  PetscCall(PetscObjectTypeCompare((PetscObject)st,STSHELL,&flg));
-  if (flg) shell->ctx = ctx;
+  PetscTryMethod(st,"STShellSetContext_C",(ST,PetscCtx),(st,ctx));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+static PetscErrorCode STShellSetDestroy_Shell(ST st,STShellDestroyFn *destroy)
+{
+  ST_SHELL *shell = (ST_SHELL*)st->data;
+
+  PetscFunctionBegin;
+  shell->destroy = destroy;
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*@C
+   STShellSetDestroy - Set a context destroy function for the `STSHELL` context.
+
+   Logically Collective
+
+   Input Parameters:
++  st      - the shell `ST`
+-  destroy - context destroy function, see `STShellDestroyFn` for its calling sequence
+
+   Level: advanced
+
+.seealso: [](ch:st), `STSHELL`, `STShellSetContext()`
+@*/
+PetscErrorCode STShellSetDestroy(ST st,STShellDestroyFn *destroy)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(st,ST_CLASSID,1);
+  PetscTryMethod(st,"STShellSetDestroy_C",(ST,STShellDestroyFn*),(st,destroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -168,8 +207,14 @@ PetscErrorCode STIsInjective_Shell(ST st,PetscBool* is)
 
 static PetscErrorCode STDestroy_Shell(ST st)
 {
+  ST_SHELL *shell = (ST_SHELL*)st->data;
+
   PetscFunctionBegin;
+  if (shell->destroy) PetscCall((*shell->destroy)(st));
   PetscCall(PetscFree(st->data));
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellGetContext_C",NULL));
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetContext_C",NULL));
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetDestroy_C",NULL));
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetApply_C",NULL));
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetApplyTranspose_C",NULL));
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetApplyHermitianTranspose_C",NULL));
@@ -177,7 +222,7 @@ static PetscErrorCode STDestroy_Shell(ST st)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode STShellSetApply_Shell(ST st,PetscErrorCode (*apply)(ST,Vec,Vec))
+static PetscErrorCode STShellSetApply_Shell(ST st,STShellApplyFn *apply)
 {
   ST_SHELL *shell = (ST_SHELL*)st->data;
 
@@ -196,25 +241,19 @@ static PetscErrorCode STShellSetApply_Shell(ST st,PetscErrorCode (*apply)(ST,Vec
 +  st    - the spectral transformation context
 -  apply - the application-provided transformation routine
 
-   Calling sequence of apply:
-$  PetscErrorCode apply(ST st,Vec xin,Vec xout)
-+  st   - the spectral transformation context
-.  xin  - input vector
--  xout - output vector
-
    Level: advanced
 
-.seealso: STShellSetBackTransform(), STShellSetApplyTranspose(), STShellSetApplyHermitianTranspose()
+.seealso: [](ch:st), `STSHELL`, `STShellSetBackTransform()`, `STShellSetApplyTranspose()`, `STShellSetApplyHermitianTranspose()`
 @*/
-PetscErrorCode STShellSetApply(ST st,PetscErrorCode (*apply)(ST st,Vec xin,Vec xout))
+PetscErrorCode STShellSetApply(ST st,STShellApplyFn *apply)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
-  PetscTryMethod(st,"STShellSetApply_C",(ST,PetscErrorCode (*)(ST,Vec,Vec)),(st,apply));
+  PetscTryMethod(st,"STShellSetApply_C",(ST,STShellApplyFn*),(st,apply));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode STShellSetApplyTranspose_Shell(ST st,PetscErrorCode (*applytrans)(ST,Vec,Vec))
+static PetscErrorCode STShellSetApplyTranspose_Shell(ST st,STShellApplyTransposeFn *applytrans)
 {
   ST_SHELL *shell = (ST_SHELL*)st->data;
 
@@ -233,26 +272,20 @@ static PetscErrorCode STShellSetApplyTranspose_Shell(ST st,PetscErrorCode (*appl
 +  st    - the spectral transformation context
 -  applytrans - the application-provided transformation routine
 
-   Calling sequence of applytrans:
-$  PetscErrorCode applytrans(ST st,Vec xin,Vec xout)
-+  st   - the spectral transformation context
-.  xin  - input vector
--  xout - output vector
-
    Level: advanced
 
-.seealso: STShellSetApply(), STShellSetBackTransform()
+.seealso: [](ch:st), `STSHELL`, `STShellSetApply()`, `STShellSetBackTransform()`
 @*/
-PetscErrorCode STShellSetApplyTranspose(ST st,PetscErrorCode (*applytrans)(ST st,Vec xin,Vec xout))
+PetscErrorCode STShellSetApplyTranspose(ST st,STShellApplyTransposeFn *applytrans)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
-  PetscTryMethod(st,"STShellSetApplyTranspose_C",(ST,PetscErrorCode (*)(ST,Vec,Vec)),(st,applytrans));
+  PetscTryMethod(st,"STShellSetApplyTranspose_C",(ST,STShellApplyTransposeFn*),(st,applytrans));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 #if defined(PETSC_USE_COMPLEX)
-static PetscErrorCode STShellSetApplyHermitianTranspose_Shell(ST st,PetscErrorCode (*applyhermtrans)(ST,Vec,Vec))
+static PetscErrorCode STShellSetApplyHermitianTranspose_Shell(ST st,STShellApplyHermitianTransposeFn *applyhermtrans)
 {
   ST_SHELL *shell = (ST_SHELL*)st->data;
 
@@ -272,29 +305,23 @@ static PetscErrorCode STShellSetApplyHermitianTranspose_Shell(ST st,PetscErrorCo
 +  st    - the spectral transformation context
 -  applyhermtrans - the application-provided transformation routine
 
-   Calling sequence of applyhermtrans:
-$  PetscErrorCode applyhermtrans(ST st,Vec xin,Vec xout)
-+  st   - the spectral transformation context
-.  xin  - input vector
--  xout - output vector
-
    Note:
-   If configured with real scalars, this function has the same effect as STShellSetApplyTranspose(),
+   If configured with real scalars, this function has the same effect as `STShellSetApplyTranspose()`,
    so no need to call both.
 
    Level: advanced
 
-.seealso: STShellSetApply(), STShellSetApplyTranspose(), STShellSetBackTransform()
+.seealso: [](ch:st), `STSHELL`, `STShellSetApply()`, `STShellSetApplyTranspose()`, `STShellSetBackTransform()`
 @*/
-PetscErrorCode STShellSetApplyHermitianTranspose(ST st,PetscErrorCode (*applyhermtrans)(ST st,Vec xin,Vec xout))
+PetscErrorCode STShellSetApplyHermitianTranspose(ST st,STShellApplyHermitianTransposeFn *applyhermtrans)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
-  PetscTryMethod(st,"STShellSetApplyHermitianTranspose_C",(ST,PetscErrorCode (*)(ST,Vec,Vec)),(st,applyhermtrans));
+  PetscTryMethod(st,"STShellSetApplyHermitianTranspose_C",(ST,STShellApplyHermitianTransposeFn*),(st,applyhermtrans));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode STShellSetBackTransform_Shell(ST st,PetscErrorCode (*backtr)(ST,PetscInt,PetscScalar*,PetscScalar*))
+static PetscErrorCode STShellSetBackTransform_Shell(ST st,STShellBackTransformFn *backtr)
 {
   ST_SHELL *shell = (ST_SHELL*)st->data;
 
@@ -314,46 +341,33 @@ static PetscErrorCode STShellSetBackTransform_Shell(ST st,PetscErrorCode (*backt
 +  st     - the spectral transformation context
 -  backtr - the application-provided backtransform routine
 
-   Calling sequence of backtr:
-$  PetscErrorCode backtr(ST st,PetscInt n,PetscScalar *eigr,PetscScalar *eigi)
-+  st   - the spectral transformation context
-.  n    - number of eigenvalues to be backtransformed
-.  eigr - pointer ot the real parts of the eigenvalues to transform back
--  eigi - pointer ot the imaginary parts
-
    Level: advanced
 
-.seealso: STShellSetApply(), STShellSetApplyTranspose()
+.seealso: [](ch:st), `STSHELL`, `STShellSetApply()`, `STShellSetApplyTranspose()`
 @*/
-PetscErrorCode STShellSetBackTransform(ST st,PetscErrorCode (*backtr)(ST st,PetscInt n,PetscScalar *eigr,PetscScalar *eigi))
+PetscErrorCode STShellSetBackTransform(ST st,STShellBackTransformFn *backtr)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(st,ST_CLASSID,1);
-  PetscTryMethod(st,"STShellSetBackTransform_C",(ST,PetscErrorCode (*)(ST,PetscInt,PetscScalar*,PetscScalar*)),(st,backtr));
+  PetscTryMethod(st,"STShellSetBackTransform_C",(ST,STShellBackTransformFn*),(st,backtr));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*MC
-   STSHELL - User-defined spectral transformation via callback functions
-   for the application of the operator to a vector and (optionally) the
+   STSHELL - STSHELL = "shell" - User-defined spectral transformation via callback
+   functions for the application of the operator to a vector and (optionally) the
    backtransform operation.
 
-   Level: advanced
+   Level: beginner
 
-   Usage:
-$             extern PetscErrorCode (*apply)(void*,Vec,Vec);
-$             extern PetscErrorCode (*applytrans)(void*,Vec,Vec);
-$             extern PetscErrorCode (*applyht)(void*,Vec,Vec);
-$             extern PetscErrorCode (*backtr)(void*,PetscScalar*,PetscScalar*);
-$
-$             STCreate(comm,&st);
-$             STSetType(st,STSHELL);
-$             STShellSetContext(st,ctx);
-$             STShellSetApply(st,apply);
-$             STShellSetApplyTranspose(st,applytrans);        (optional)
-$             STShellSetApplyHermitianTranspose(st,applyht);  (optional, only in complex scalars)
-$             STShellSetBackTransform(st,backtr);             (optional)
+   Note:
+   In order to define a `shell` spectral transformation, the user has to provide
+   the `apply` operation via `STShellSetApply()` and related functions, and
+   optionally a `backtransform` operation via `STShellSetBackTransform()`, and
+   in some cases a user-defined context containing relevant data via
+   `STShellSetContext()`.
 
+.seealso: [](ch:st), `ST`, `STType`, `STSetType()`, `STShellSetApply()`, `STShellSetBackTransform()`, `STShellSetContext()`
 M*/
 
 SLEPC_EXTERN PetscErrorCode STCreate_Shell(ST st)
@@ -376,6 +390,9 @@ SLEPC_EXTERN PetscErrorCode STCreate_Shell(ST st)
   st->ops->backtransform   = STBackTransform_Shell;
   st->ops->destroy         = STDestroy_Shell;
 
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellGetContext_C",STShellGetContext_Shell));
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetContext_C",STShellSetContext_Shell));
+  PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetDestroy_C",STShellSetDestroy_Shell));
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetApply_C",STShellSetApply_Shell));
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STShellSetApplyTranspose_C",STShellSetApplyTranspose_Shell));
 #if defined(PETSC_USE_COMPLEX)

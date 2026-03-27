@@ -20,13 +20,13 @@ SLEPC_EXTERN PetscErrorCode PEPCreate_CISS(PEP);
 #endif
 
 /*@C
-   PEPRegisterAll - Registers all the solvers in the PEP package.
+   PEPRegisterAll - Registers all the solvers in the `PEP` package.
 
    Not Collective
 
    Level: advanced
 
-.seealso: PEPRegister()
+.seealso: [](ch:pep), `PEPRegister()`
 @*/
 PetscErrorCode PEPRegisterAll(void)
 {
@@ -45,13 +45,13 @@ PetscErrorCode PEPRegisterAll(void)
 }
 
 /*@C
-  PEPMonitorRegisterAll - Registers all the monitors in the PEP package.
+  PEPMonitorRegisterAll - Registers all the monitors in the `PEP` package.
 
   Not Collective
 
   Level: advanced
 
-.seealso: PEPMonitorRegister()
+.seealso: [](ch:pep), `PEPMonitorRegister()`
 @*/
 PetscErrorCode PEPMonitorRegisterAll(void)
 {
@@ -63,7 +63,7 @@ PetscErrorCode PEPMonitorRegisterAll(void)
   PetscCall(PEPMonitorRegister("first_approximation",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,PEPMonitorFirstDrawLG,PEPMonitorFirstDrawLGCreate,NULL));
   PetscCall(PEPMonitorRegister("all_approximations",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,PEPMonitorAll,NULL,NULL));
   PetscCall(PEPMonitorRegister("all_approximations",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,PEPMonitorAllDrawLG,PEPMonitorAllDrawLGCreate,NULL));
-  PetscCall(PEPMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,PEPMonitorConverged,PEPMonitorConvergedCreate,PEPMonitorConvergedDestroy));
-  PetscCall(PEPMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,PEPMonitorConvergedDrawLG,PEPMonitorConvergedDrawLGCreate,PEPMonitorConvergedDestroy));
+  PetscCall(PEPMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,PEPMonitorConverged,PEPMonitorConvergedCreate,PetscViewerAndFormatDestroy));
+  PetscCall(PEPMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,PEPMonitorConvergedDrawLG,PEPMonitorConvergedDrawLGCreate,PetscViewerAndFormatDestroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

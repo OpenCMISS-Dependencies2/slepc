@@ -1,5 +1,7 @@
 # -*- mode: makefile-gmake -*-
 
+# If $(PETSC_ARCH) is empty, this defines it and SLEPC_DIR
+include ./$(PETSC_ARCH)/lib/slepc/conf/slepcvariables
 include ./lib/slepc/conf/slepc_variables
 
 OBJDIR := $(PETSC_ARCH)/obj
@@ -64,7 +66,7 @@ $(generated) : $(slepcconf) $(slepcvariables) $(PETSCCONFIGDIR)/gmakegen.py
 	$(PYTHON) $(PETSCCONFIGDIR)/gmakegen.py --petsc-arch=$(PETSC_ARCH_DIR) --pkg-dir=$(SLEPC_DIR) --pkg-name=slepc --pkg-pkgs=$(spkgs) --pkg-arch=$(PETSC_ARCH)
 
 # Skip including generated files (which triggers rebuilding them) when we're just going to clean anyway.
-ifneq ($(filter-out help clean distclean check info gmakeinfo checkbadSource deletefortranstubs allfortranstubs allfortranstubsinplace alletags lint_slepc get%,$(MAKECMDGOALS:clean%=clean)),)
+ifneq ($(filter-out help clean distclean check info gmakeinfo checkbadSource deletefortranbindings fortranbindings alletags lint_slepc shellcheck checkshellcheck cleantest allgtest% get%,$(MAKECMDGOALS:clean%=clean)),)
 include $(generated)
 endif
 
@@ -80,7 +82,7 @@ ifneq ($(CUDAC),)
 langs += cu
 endif
 ifneq ($(HIPC),)
-langs += hip.cpp
+langs += hip.cxx
 endif
 ifneq ($(SYCLC),)
 langs += sycl.cxx
@@ -147,7 +149,7 @@ define ARCHIVE_RECIPE_DEFAULT
   $(call quiet,RANLIB) $@
 endef
 
-%${LIB_NAME_SUFFIX}.$(AR_LIB_SUFFIX) : $$(obj) | $$(@D)/.DIR
+%$(LIB_NAME_SUFFIX).$(AR_LIB_SUFFIX) : $$(obj) | $$(@D)/.DIR
 	$(if $(findstring win32fe_lib,$(AR)),$(ARCHIVE_RECIPE_WIN32FE_LIB),$(if $(findstring yes,$(AR_ARGFILE)),$(if $(GMAKE4),$(ARCHIVE_RECIPE_ARGFILE),$(ARCHIVE_RECIPE_DEFAULT)),$(ARCHIVE_RECIPE_DEFAULT)))
 
 # with-single-library=0
@@ -181,7 +183,7 @@ ifneq ($(DSYMUTIL),true)
 	$(call quiet,DSYMUTIL) $@
 endif
 
-%${LIB_NAME_SUFFIX}.$(SL_LINKER_SUFFIX) : $(call libname_function,%) | $(call soname_function,%)
+%$(LIB_NAME_SUFFIX).$(SL_LINKER_SUFFIX) : $(call libname_function,%) | $(call soname_function,%)
 	@ln -sf $(notdir $<) $@
 
 $(call soname_function,%) : $(call libname_function,%)
@@ -192,17 +194,23 @@ $(call soname_function,%) : $(call libname_function,%)
 $(OBJDIR)/%.o : %.sycl.cxx | $$(@D)/.DIR
 	$(PETSC_COMPILE.sycl.cxx) $(abspath $<) -o $@
 
-$(OBJDIR)/%.o : %.c | $$(@D)/.DIR
+$(OBJDIR)/src/%.o : src/%.c | $$(@D)/.DIR
+	$(PETSC_COMPILE.c) $(abspath $<) -o $@
+
+$(OBJDIR)/ftn/%.o : $(PETSC_ARCH)/ftn/%.c | $$(@D)/.DIR
 	$(PETSC_COMPILE.c) $(abspath $<) -o $@
 
 $(OBJDIR)/%.o : %.kokkos.cxx | $$(@D)/.DIR
 	$(PETSC_COMPILE.kokkos.cxx) $(abspath $<) -o $@
 
-$(OBJDIR)/%.o : %.cxx | $$(@D)/.DIR
+$(OBJDIR)/src/%.o : src/%.cxx | $$(@D)/.DIR
 	$(PETSC_COMPILE.cxx) $(abspath $<) -o $@
 
-$(OBJDIR)/%.o : %.hip.cpp | $$(@D)/.DIR
-	$(PETSC_COMPILE.hip.cpp) $(abspath $<) -o $@
+$(OBJDIR)/ftn/%.o : $(PETSC_ARCH)/ftn/%.cxx | $$(@D)/.DIR
+	$(PETSC_COMPILE.cxx) $(abspath $<) -o $@
+
+$(OBJDIR)/%.o : %.hip.cxx | $$(@D)/.DIR
+	$(PETSC_COMPILE.hip.cxx) $(abspath $<) -o $@
 
 $(OBJDIR)/%.o : %.cu | $$(@D)/.DIR
 	$(PETSC_COMPILE.cu) $(abspath $<) -o $@ # Compile first so that if there is an error, it comes from a normal compile
@@ -232,17 +240,17 @@ $(OBJDIR)/%.tidy : %.c | $$(@D)/.DIR
 clang-tidy: $(srcs.tidy)
 
 # Hack: manual dependencies on object files
-$(OBJDIR)/src/sys/classes/bv/f90-mod/slepcbvmod.o : $(OBJDIR)/src/sys/f90-mod/slepcsysmod.o
-$(OBJDIR)/src/sys/classes/fn/f90-mod/slepcfnmod.o : $(OBJDIR)/src/sys/f90-mod/slepcsysmod.o
-$(OBJDIR)/src/sys/classes/rg/f90-mod/slepcrgmod.o : $(OBJDIR)/src/sys/f90-mod/slepcsysmod.o
-$(OBJDIR)/src/sys/classes/ds/f90-mod/slepcdsmod.o : $(OBJDIR)/src/sys/classes/fn/f90-mod/slepcfnmod.o $(OBJDIR)/src/sys/classes/rg/f90-mod/slepcrgmod.o
-$(OBJDIR)/src/sys/classes/st/f90-mod/slepcstmod.o : $(OBJDIR)/src/sys/classes/bv/f90-mod/slepcbvmod.o
-$(OBJDIR)/src/mfn/f90-mod/slepcmfnmod.o   : $(OBJDIR)/src/sys/classes/bv/f90-mod/slepcbvmod.o $(OBJDIR)/src/sys/classes/fn/f90-mod/slepcfnmod.o
-$(OBJDIR)/src/lme/f90-mod/slepclmemod.o   : $(OBJDIR)/src/sys/classes/bv/f90-mod/slepcbvmod.o
-$(OBJDIR)/src/eps/f90-mod/slepcepsmod.o   : $(OBJDIR)/src/sys/classes/bv/f90-mod/slepcbvmod.o $(OBJDIR)/src/sys/classes/fn/f90-mod/slepcfnmod.o $(OBJDIR)/src/sys/classes/ds/f90-mod/slepcdsmod.o $(OBJDIR)/src/sys/classes/rg/f90-mod/slepcrgmod.o $(OBJDIR)/src/sys/classes/st/f90-mod/slepcstmod.o $(OBJDIR)/src/lme/f90-mod/slepclmemod.o
-$(OBJDIR)/src/pep/f90-mod/slepcpepmod.o   : $(OBJDIR)/src/eps/f90-mod/slepcepsmod.o
-$(OBJDIR)/src/nep/f90-mod/slepcnepmod.o   : $(OBJDIR)/src/pep/f90-mod/slepcpepmod.o $(OBJDIR)/src/mfn/f90-mod/slepcmfnmod.o
-$(OBJDIR)/src/svd/f90-mod/slepcsvdmod.o   : $(OBJDIR)/src/eps/f90-mod/slepcepsmod.o
+$(OBJDIR)/src/sys/classes/bv/ftn-mod/slepcbvmod.o : $(OBJDIR)/src/sys/ftn-mod/slepcsysmod.o
+$(OBJDIR)/src/sys/classes/fn/ftn-mod/slepcfnmod.o : $(OBJDIR)/src/sys/ftn-mod/slepcsysmod.o
+$(OBJDIR)/src/sys/classes/rg/ftn-mod/slepcrgmod.o : $(OBJDIR)/src/sys/ftn-mod/slepcsysmod.o
+$(OBJDIR)/src/sys/classes/ds/ftn-mod/slepcdsmod.o : $(OBJDIR)/src/sys/classes/fn/ftn-mod/slepcfnmod.o $(OBJDIR)/src/sys/classes/rg/ftn-mod/slepcrgmod.o
+$(OBJDIR)/src/sys/classes/st/ftn-mod/slepcstmod.o : $(OBJDIR)/src/sys/classes/bv/ftn-mod/slepcbvmod.o
+$(OBJDIR)/src/mfn/ftn-mod/slepcmfnmod.o   : $(OBJDIR)/src/sys/classes/bv/ftn-mod/slepcbvmod.o $(OBJDIR)/src/sys/classes/fn/ftn-mod/slepcfnmod.o
+$(OBJDIR)/src/lme/ftn-mod/slepclmemod.o   : $(OBJDIR)/src/sys/classes/bv/ftn-mod/slepcbvmod.o
+$(OBJDIR)/src/eps/ftn-mod/slepcepsmod.o   : $(OBJDIR)/src/sys/classes/bv/ftn-mod/slepcbvmod.o $(OBJDIR)/src/sys/classes/fn/ftn-mod/slepcfnmod.o $(OBJDIR)/src/sys/classes/ds/ftn-mod/slepcdsmod.o $(OBJDIR)/src/sys/classes/rg/ftn-mod/slepcrgmod.o $(OBJDIR)/src/sys/classes/st/ftn-mod/slepcstmod.o $(OBJDIR)/src/lme/ftn-mod/slepclmemod.o
+$(OBJDIR)/src/pep/ftn-mod/slepcpepmod.o   : $(OBJDIR)/src/eps/ftn-mod/slepcepsmod.o
+$(OBJDIR)/src/nep/ftn-mod/slepcnepmod.o   : $(OBJDIR)/src/pep/ftn-mod/slepcpepmod.o $(OBJDIR)/src/mfn/ftn-mod/slepcmfnmod.o
+$(OBJDIR)/src/svd/ftn-mod/slepcsvdmod.o   : $(OBJDIR)/src/eps/ftn-mod/slepcepsmod.o
 
 # all sources should get recompiled when slepcvariables changes (i.e when configure is rerun or when slepcvariables is manually edited.)
 $(srcs.o) : $(slepcvariables)
@@ -256,7 +264,6 @@ clean:
 print:
 	$(info $($(VAR)))
 	@true
-
 
 allobj.d := $(srcs.o:%.o=%.d)
 # Tell make that allobj.d are all up to date.  Without this, the include

@@ -251,7 +251,13 @@ static PetscErrorCode EPSSliceGetInertia(EPS eps,PetscReal shift,PetscInt *inert
       PetscCall(PCRedundantGetKSP(pc,&kspr));
       PetscCall(KSPGetPC(kspr,&pc));
     }
+    PetscCall(PetscObjectTypeCompare((PetscObject)pc,PCTELESCOPE,&flg));
+    if (flg) {
+      PetscCall(PCTelescopeGetKSP(pc,&kspr));
+      PetscCall(KSPGetPC(kspr,&pc));
+    }
     PetscCall(PCFactorGetMatrix(pc,&F));
+    PetscCall(PCSetUp(pc));
     PetscCall(MatGetInertia(F,inertia,zeros,NULL));
   }
   if (inertia) PetscCall(PetscInfo(eps,"Computed inertia at shift %g: %" PetscInt_FMT "\n",(double)nzshift,*inertia));
@@ -420,8 +426,8 @@ PetscErrorCode EPSSetUp_KrylovSchur_Slice(EPS eps)
       if (!rank) {
         if (sr->inertia0!=-1 && ((sr->dir>0 && ctx->subc->color>0) || (sr->dir<0 && ctx->subc->color<ctx->npart-1))) { /* send inertia0 to neighbour0 */
           PetscCall(PetscMPIIntCast(ctx->subc->color-sr->dir,&aux));
-          PetscCallMPI(MPI_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
-          PetscCallMPI(MPI_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
+          PetscCallMPI(MPIU_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
+          PetscCallMPI(MPIU_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
         }
         if ((sr->dir>0 && ctx->subc->color<ctx->npart-1)|| (sr->dir<0 && ctx->subc->color>0)) { /* receive inertia1 from neighbour1 */
           PetscCall(PetscMPIIntCast(ctx->subc->color+sr->dir,&aux));
@@ -431,8 +437,8 @@ PetscErrorCode EPSSetUp_KrylovSchur_Slice(EPS eps)
         if (sr->inertia0==-1 && !(sr->dir>0 && ctx->subc->color==ctx->npart-1) && !(sr->dir<0 && ctx->subc->color==0)) {
           sr->inertia0 = sr->inertia1; sr->int0 = sr->int1;
           PetscCall(PetscMPIIntCast(ctx->subc->color-sr->dir,&aux));
-          PetscCallMPI(MPI_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
-          PetscCallMPI(MPI_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
+          PetscCallMPI(MPIU_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
+          PetscCallMPI(MPIU_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
         }
       }
       if ((sr->dir>0 && ctx->subc->color<ctx->npart-1)||(sr->dir<0 && ctx->subc->color>0)) {
@@ -448,8 +454,8 @@ PetscErrorCode EPSSetUp_KrylovSchur_Slice(EPS eps)
       if (!rank && sr->inertia0==-1) {
         sr->inertia0 = sr->inertia1; sr->int0 = sr->int1;
         PetscCall(PetscMPIIntCast(ctx->subc->color-sr->dir,&aux));
-        PetscCallMPI(MPI_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
-        PetscCallMPI(MPI_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
+        PetscCallMPI(MPIU_Isend(&sr->inertia0,1,MPIU_INT,aux,0,ctx->commrank,&req));
+        PetscCallMPI(MPIU_Isend(&sr->int0,1,MPIU_REAL,aux,0,ctx->commrank,&req));
       }
       if (sr->hasEnd) {
         sr->dir = -sr->dir; r = sr->int0; sr->int0 = sr->int1; sr->int1 = r;

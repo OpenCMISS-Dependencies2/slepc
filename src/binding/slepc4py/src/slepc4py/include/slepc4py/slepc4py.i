@@ -1,6 +1,3 @@
-/* Author:  Lisandro Dalcin   */
-/* Contact: dalcinl@gmail.com */
-
 /* ---------------------------------------------------------------- */
 
 %include petsc4py/petsc4py.i
@@ -20,6 +17,7 @@
 %define SWIG_TYPECHECK_SLEPC_PEP 657 %enddef
 %define SWIG_TYPECHECK_SLEPC_NEP 658 %enddef
 %define SWIG_TYPECHECK_SLEPC_MFN 659 %enddef
+%define SWIG_TYPECHECK_SLEPC_LME 660 %enddef
 
 %define %slepc4py_objt(Pkg, PyType, Type, CODE)
 %petsc4py_objt(Pkg, PyType, Type, CODE)
@@ -37,6 +35,7 @@
 %slepc4py_objt( Slepc , PEP , PEP , SLEPC_PEP )
 %slepc4py_objt( Slepc , NEP , NEP , SLEPC_NEP )
 %slepc4py_objt( Slepc , MFN , MFN , SLEPC_MFN )
+%slepc4py_objt( Slepc , LME , LME , SLEPC_LME )
 
 /* ---------------------------------------------------------------- */
 

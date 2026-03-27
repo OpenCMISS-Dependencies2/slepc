@@ -1,0 +1,9 @@
+# Spectral Transformation - ST
+
+The Spectral Transformation (ST) class encapsulates the functionality required for acceleration techniques based on the transformation of the spectrum. The eigensolvers implemented in `EPS` work by applying an operator to a set of vectors and this operator can adopt different forms. The `ST` object handles all the different possibilities in a uniform way, so that the solver can proceed without knowing which transformation has been selected. Polynomial eigensolvers in `PEP` also support spectral transformation.
+
+The type of spectral transformation can be specified at run time (e.g., `-st_type sinvert`) as well as several parameters such as the value of the shift (e.g., `-st_matmode inplace`).
+
+`ST` objects are always related to a solver object (either `EPS` or `PEP`). Users should not create a standalone `ST` object. `ST` options can also be set directly in application codes by first extracting the `ST` context from the `EPS` context via `EPSGetST()` and then directly calling the `ST` routines (e.g., `STSetType()` or `STSetMatMode()`).
+
+Related Users Manual part: [](ch:st).

@@ -36,7 +36,7 @@ int main(int argc,char **argv)
   PetscScalar    a,b,c,d;
   PetscReal      lev;
   PetscInt       n=24,Istart,Iend,i,nconv;
-  PetscBool      terse,checkorthog;
+  PetscBool      terse,checkorthog,nest=PETSC_FALSE;
   Vec            t,*x,*y;
 
   PetscFunctionBeginUser;
@@ -90,6 +90,10 @@ int main(int argc,char **argv)
   PetscCall(MatAssemblyEnd(C,MAT_FINAL_ASSEMBLY));
 
   PetscCall(MatCreateBSE(R,C,&H));
+
+  /* if you prefer, set the vector type so that MatCreateVecs() returns nested vectors */
+  PetscCall(PetscOptionsGetBool(NULL,NULL,"-nest",&nest,NULL));
+  if (nest) PetscCall(MatNestSetVecType(H,VECNEST));
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                 Create the eigensolver and set various options
@@ -146,8 +150,8 @@ int main(int argc,char **argv)
 /*TEST
 
    testset:
-      args: -eps_nev 4 -eps_ncv 16 -eps_krylovschur_bse_type {{shao gruning projectedbse}} -terse -checkorthog
-      filter: sed -e "s/17496/17495/g" | sed -e "s/38566/38567/g"
+      args: -eps_nev 4 -eps_ncv 16 -eps_krylovschur_bse_type {{shao gruning projectedbse}} -terse -checkorthog -nest {{0 1}}
+      filter: sed -e "s/17496/17495/g" | sed -e "s/38566/38567/g" | sed -e "s/32172/32173/g"
       nsize: {{1 2}}
       test:
          suffix: 1
@@ -155,6 +159,31 @@ int main(int argc,char **argv)
       test:
          suffix: 1_real
          requires: !complex
+      test:
+         suffix: 1_dense
+         args: -mat_type dense
+         requires: complex
+         output_file: output/ex55_1.out
+      test:
+         suffix: 1_cuda
+         args: -mat_type aijcusparse
+         requires: cuda complex
+         output_file: output/ex55_1.out
+      test:
+         suffix: 1_real_cuda
+         args: -mat_type aijcusparse
+         requires: cuda !complex
+         output_file: output/ex55_1_real.out
+      test:
+         suffix: 1_hip
+         args: -mat_type aijhipsparse
+         requires: hip complex
+         output_file: output/ex55_1.out
+      test:
+         suffix: 1_real_hip
+         args: -mat_type aijhipsparse
+         requires: hip !complex
+         output_file: output/ex55_1_real.out
 
    testset:
       args: -eps_nev 4 -eps_ncv 16 -eps_krylovschur_bse_type {{shao gruning projectedbse}} -st_type sinvert -terse
@@ -166,7 +195,7 @@ int main(int argc,char **argv)
          nsize: 4
          args: -mat_type scalapack
          suffix: 1_sinvert_scalapack
-         requires: complex scalapack
+         requires: complex scalapack !__float128
          output_file: output/ex55_1_sinvert.out
       test:
          suffix: 1_real_sinvert
@@ -175,7 +204,7 @@ int main(int argc,char **argv)
          nsize: 4
          args: -mat_type scalapack
          suffix: 1_real_sinvert_scalapack
-         requires: !complex scalapack
+         requires: !complex scalapack !__float128
          output_file: output/ex55_1_real_sinvert.out
 
    testset:
@@ -186,5 +215,11 @@ int main(int argc,char **argv)
       test:
          suffix: 2_real
          requires: double !complex
+
+   testset:
+      args: -eps_nev 28 -eps_ncv 18 -terse
+      test:
+         suffix: 3
+         requires: !complex !single
 
 TEST*/

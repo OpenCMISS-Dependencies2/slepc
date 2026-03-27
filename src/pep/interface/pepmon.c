@@ -14,25 +14,6 @@
 #include <slepc/private/pepimpl.h>      /*I "slepcpep.h" I*/
 #include <petscdraw.h>
 
-PetscErrorCode PEPMonitorLGCreate(MPI_Comm comm,const char host[],const char label[],const char metric[],PetscInt l,const char *names[],int x,int y,int m,int n,PetscDrawLG *lgctx)
-{
-  PetscDraw      draw;
-  PetscDrawAxis  axis;
-  PetscDrawLG    lg;
-
-  PetscFunctionBegin;
-  PetscCall(PetscDrawCreate(comm,host,label,x,y,m,n,&draw));
-  PetscCall(PetscDrawSetFromOptions(draw));
-  PetscCall(PetscDrawLGCreate(draw,l,&lg));
-  if (names) PetscCall(PetscDrawLGSetLegend(lg,names));
-  PetscCall(PetscDrawLGSetFromOptions(lg));
-  PetscCall(PetscDrawLGGetAxis(lg,&axis));
-  PetscCall(PetscDrawAxisSetLabels(axis,"Convergence","Iteration",metric));
-  PetscCall(PetscDrawDestroy(&draw));
-  *lgctx = lg;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
 /*
    Runs the user provided monitor routines, if any.
 */
@@ -52,74 +33,78 @@ PetscErrorCode PEPMonitor(PEP pep,PetscInt it,PetscInt nconv,PetscScalar *eigr,P
    Logically Collective
 
    Input Parameters:
-+  pep     - eigensolver context obtained from PEPCreate()
-.  monitor - pointer to function (if this is NULL, it turns off monitoring)
-.  mctx    - [optional] context for private data for the
-             monitor routine (use NULL if no context is desired)
--  monitordestroy - [optional] routine that frees monitor context (may be NULL),
-             see PetscCtxDestroyFn for the calling sequence
-
-   Calling sequence of monitor:
-$  PetscErrorCode monitor(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,void *mctx)
-+  pep    - polynomial eigensolver context obtained from PEPCreate()
-.  its    - iteration number
-.  nconv  - number of converged eigenpairs
-.  eigr   - real part of the eigenvalues
-.  eigi   - imaginary part of the eigenvalues
-.  errest - relative error estimates for each eigenpair
-.  nest   - number of error estimates
--  mctx   - optional monitoring context, as set by PEPMonitorSet()
++  pep            - the polynomial eigensolver context
+.  monitor        - pointer to function (if this is `NULL`, it turns off monitoring),
+                    see `PEPMonitorFn`
+.  ctx            - [optional] context for private data for the monitor routine
+                    (use `NULL` if no context is desired)
+-  monitordestroy - [optional] routine that frees monitor context (may be `NULL`),
+                    see `PetscCtxDestroyFn` for the calling sequence
 
    Options Database Keys:
-+    -pep_monitor        - print only the first error estimate
-.    -pep_monitor_all    - print error estimates at each iteration
-.    -pep_monitor_conv   - print the eigenvalue approximations only when
-      convergence has been reached
-.    -pep_monitor draw::draw_lg - sets line graph monitor for the first unconverged
-      approximate eigenvalue
-.    -pep_monitor_all draw::draw_lg - sets line graph monitor for all unconverged
-      approximate eigenvalues
-.    -pep_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
--    -pep_monitor_cancel - cancels all monitors that have been hardwired into
-      a code by calls to PEPMonitorSet(), but does not cancel those set via
-      the options database.
++  -pep_monitor                    - print only the first error estimate
+.  -pep_monitor_all                - print error estimates at each iteration
+.  -pep_monitor_conv               - print the eigenvalue approximations only when
+                                     convergence has been reached
+.  -pep_monitor draw::draw_lg      - sets line graph monitor for the first unconverged
+                                     approximate eigenvalue
+.  -pep_monitor_all draw::draw_lg  - sets line graph monitor for all unconverged
+                                     approximate eigenvalues
+.  -pep_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
+-  -pep_monitor_cancel             - cancels all monitors that have been hardwired into
+                                     a code by calls to `PEPMonitorSet()`, but does not cancel
+                                     those set via the options database.
 
    Notes:
-   Several different monitoring routines may be set by calling
-   PEPMonitorSet() multiple times; all will be called in the
-   order in which they were set.
+   The options database option `-pep_monitor` and related options are the easiest way
+   to turn on `PEP` iteration monitoring.
+
+   `PEPMonitorRegister()` provides a way to associate an options database key with `PEP`
+   monitor function.
+
+   Several different monitoring routines may be set by calling `PEPMonitorSet()` multiple
+   times; all will be called in the order in which they were set.
+
+   Fortran Note:
+   Only a single monitor function can be set for each `PEP` object.
 
    Level: intermediate
 
-.seealso: PEPMonitorFirst(), PEPMonitorAll(), PEPMonitorCancel()
+.seealso: [](ch:pep), `PEPMonitorFirst()`, `PEPMonitorAll()`, `PEPMonitorConverged()`, `PEPMonitorFirstDrawLG()`, `PEPMonitorAllDrawLG()`, `PEPMonitorConvergedDrawLG()`, `PEPMonitorCancel()`
 @*/
-PetscErrorCode PEPMonitorSet(PEP pep,PetscErrorCode (*monitor)(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,void *mctx),void *mctx,PetscCtxDestroyFn *monitordestroy)
+PetscErrorCode PEPMonitorSet(PEP pep,PEPMonitorFn *monitor,PetscCtx ctx,PetscCtxDestroyFn *monitordestroy)
 {
+  PetscInt  i;
+  PetscBool identical;
+
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
+  for (i=0;i<pep->numbermonitors;i++) {
+    PetscCall(PetscMonitorCompare((PetscErrorCode(*)(void))(PetscVoidFn*)monitor,ctx,monitordestroy,(PetscErrorCode (*)(void))(PetscVoidFn*)pep->monitor[i],pep->monitorcontext[i],pep->monitordestroy[i],&identical));
+    if (identical) PetscFunctionReturn(PETSC_SUCCESS);
+  }
   PetscCheck(pep->numbermonitors<MAXPEPMONITORS,PetscObjectComm((PetscObject)pep),PETSC_ERR_ARG_OUTOFRANGE,"Too many PEP monitors set");
   pep->monitor[pep->numbermonitors]           = monitor;
-  pep->monitorcontext[pep->numbermonitors]    = (void*)mctx;
+  pep->monitorcontext[pep->numbermonitors]    = ctx;
   pep->monitordestroy[pep->numbermonitors++]  = monitordestroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@
-   PEPMonitorCancel - Clears all monitors for a PEP object.
+   PEPMonitorCancel - Clears all monitors for a `PEP` object.
 
    Logically Collective
 
-   Input Parameters:
-.  pep - eigensolver context obtained from PEPCreate()
+   Input Parameter:
+.  pep - the polynomial eigensolver context
 
    Options Database Key:
-.    -pep_monitor_cancel - Cancels all monitors that have been hardwired
-      into a code by calls to PEPMonitorSet(),
-      but does not cancel those set via the options database.
+.  -pep_monitor_cancel - cancels all monitors that have been hardwired into a code by calls to
+                         `PEPMonitorSet()`, but does not cancel those set via the options database.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`
 @*/
 PetscErrorCode PEPMonitorCancel(PEP pep)
 {
@@ -136,21 +121,21 @@ PetscErrorCode PEPMonitorCancel(PEP pep)
 
 /*@C
    PEPGetMonitorContext - Gets the monitor context, as set by
-   PEPMonitorSet() for the FIRST monitor only.
+   `PEPMonitorSet()` for the FIRST monitor only.
 
    Not Collective
 
    Input Parameter:
-.  pep - eigensolver context obtained from PEPCreate()
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  ctx - monitor context
 
    Level: intermediate
 
-.seealso: PEPMonitorSet(), PEPDefaultMonitor()
+.seealso: [](ch:pep), `PEPMonitorSet()`
 @*/
-PetscErrorCode PEPGetMonitorContext(PEP pep,void *ctx)
+PetscErrorCode PEPGetMonitorContext(PEP pep,PetscCtxRt ctx)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
@@ -186,7 +171,7 @@ static PetscErrorCode PEPMonitorGetTrueEig(PEP pep,PetscScalar *er,PetscScalar *
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -196,13 +181,17 @@ static PetscErrorCode PEPMonitorGetTrueEig(PEP pep,PetscScalar *er,PetscScalar *
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor - activates PEPMonitorFirst()
+.  -pep_monitor - activates `PEPMonitorFirst()`
+
+   Note:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet(), PEPMonitorAll(), PEPMonitorConverged()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorAll()`, `PEPMonitorConverged()`
 @*/
-PetscErrorCode PEPMonitorFirst(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorFirst(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscScalar    er,ei;
   PetscViewer    viewer = vf->viewer;
@@ -239,7 +228,7 @@ PetscErrorCode PEPMonitorFirst(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -249,13 +238,17 @@ PetscErrorCode PEPMonitorFirst(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor_all - activates PEPMonitorAll()
+.  -pep_monitor_all - activates `PEPMonitorAll()`
+
+   Note:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet(), PEPMonitorFirst(), PEPMonitorConverged()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorFirst()`, `PEPMonitorConverged()`
 @*/
-PetscErrorCode PEPMonitorAll(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorAll(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscInt       i;
   PetscScalar    er,ei;
@@ -294,7 +287,7 @@ PetscErrorCode PEPMonitorAll(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *ei
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -304,29 +297,34 @@ PetscErrorCode PEPMonitorAll(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *ei
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor_conv - activates PEPMonitorConverged()
+.  -pep_monitor_conv - activates `PEPMonitorConverged()`
+
+   Notes:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
+
+   Call `PEPMonitorConvergedCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet(), PEPMonitorFirst(), PEPMonitorAll()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorConvergedCreate()`, `PEPMonitorFirst()`, `PEPMonitorAll()`
 @*/
-PetscErrorCode PEPMonitorConverged(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorConverged(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
-  PetscInt       i;
+  PetscInt       i,*oldnconv;
   PetscScalar    er,ei;
   PetscViewer    viewer = vf->viewer;
-  SlepcConvMon   ctx;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  ctx = (SlepcConvMon)vf->data;
+  oldnconv = (PetscInt*)vf->data;
   if (its==1 && ((PetscObject)pep)->prefix) PetscCall(PetscViewerASCIIPrintf(viewer,"  Convergence history for %s solve.\n",((PetscObject)pep)->prefix));
-  if (its==1) ctx->oldnconv = 0;
-  if (ctx->oldnconv!=nconv) {
+  if (its==1) *oldnconv = 0;
+  if (*oldnconv!=nconv) {
     PetscCall(PetscViewerPushFormat(viewer,vf->format));
     PetscCall(PetscViewerASCIIAddTab(viewer,((PetscObject)pep)->tablevel));
-    for (i=ctx->oldnconv;i<nconv;i++) {
+    for (i=*oldnconv;i<nconv;i++) {
       PetscCall(PetscViewerASCIIPrintf(viewer,"%3" PetscInt_FMT " PEP converged value (error) #%" PetscInt_FMT,its,i));
       PetscCall(PetscViewerASCIIUseTabs(viewer,PETSC_FALSE));
       er = eigr[i]; ei = eigi[i];
@@ -342,31 +340,37 @@ PetscErrorCode PEPMonitorConverged(PEP pep,PetscInt its,PetscInt nconv,PetscScal
     }
     PetscCall(PetscViewerASCIISubtractTab(viewer,((PetscObject)pep)->tablevel));
     PetscCall(PetscViewerPopFormat(viewer));
-    ctx->oldnconv = nconv;
+    *oldnconv = nconv;
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode PEPMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
+/*@C
+   PEPMonitorConvergedCreate - Creates the context for the convergence history monitor.
+
+   Collective
+
+   Input Parameters:
++  viewer - the viewer
+.  format - the viewer format
+-  ctx    - an optional user context
+
+   Output Parameter:
+.  vf     - the viewer and format context
+
+   Level: intermediate
+
+.seealso: [](ch:pep), `PEPMonitorSet()`
+@*/
+PetscErrorCode PEPMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,PetscCtx ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
-PetscErrorCode PEPMonitorConvergedDestroy(PetscViewerAndFormat **vf)
-{
-  PetscFunctionBegin;
-  if (!*vf) PetscFunctionReturn(PETSC_SUCCESS);
-  PetscCall(PetscFree((*vf)->data));
-  PetscCall(PetscViewerDestroy(&(*vf)->viewer));
-  PetscCall(PetscDrawLGDestroy(&(*vf)->lg));
-  PetscCall(PetscFree(*vf));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -377,7 +381,7 @@ PetscErrorCode PEPMonitorConvergedDestroy(PetscViewerAndFormat **vf)
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -387,23 +391,29 @@ PetscErrorCode PEPMonitorConvergedDestroy(PetscViewerAndFormat **vf)
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor draw::draw_lg - activates PEPMonitorFirstDrawLG()
+.  -pep_monitor draw::draw_lg - activates `PEPMonitorFirstDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
+
+   Call `PEPMonitorFirstDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorFirstDrawLGCreate()`
 @*/
-PetscErrorCode PEPMonitorFirstDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorFirstDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscReal      x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -438,14 +448,14 @@ PetscErrorCode PEPMonitorFirstDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscSc
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`
 @*/
 PetscErrorCode PEPMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(PEPMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -456,7 +466,7 @@ PetscErrorCode PEPMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -466,24 +476,30 @@ PetscErrorCode PEPMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor_all draw::draw_lg - activates PEPMonitorAllDrawLG()
+.  -pep_monitor_all draw::draw_lg - activates `PEPMonitorAllDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
+
+   Call `PEPMonitorAllDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorAllDrawLGCreate()`
 @*/
-PetscErrorCode PEPMonitorAllDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorAllDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscInt       i,n = PetscMin(pep->nev,255);
   PetscReal      *x,*y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,n));
@@ -520,14 +536,14 @@ PetscErrorCode PEPMonitorAllDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScal
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`
 @*/
 PetscErrorCode PEPMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(PEPMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -538,7 +554,7 @@ PetscErrorCode PEPMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
    Collective
 
    Input Parameters:
-+  pep    - polynomial eigensolver context
++  pep    - the polynomial eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -548,23 +564,29 @@ PetscErrorCode PEPMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -pep_monitor_conv draw::draw_lg - activates PEPMonitorConvergedDrawLG()
+.  -pep_monitor_conv draw::draw_lg - activates `PEPMonitorConvergedDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `PEPMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `PEP` solve.
+
+   Call `PEPMonitorConvergedDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`, `PEPMonitorConvergedDrawLGCreate()`
 @*/
-PetscErrorCode PEPMonitorConvergedDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode PEPMonitorConvergedDrawLG(PEP pep,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer      viewer = vf->viewer;
-  PetscDrawLG      lg = vf->lg;
+  PetscDrawLG      lg;
   PetscReal        x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pep,PEP_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -596,17 +618,17 @@ PetscErrorCode PEPMonitorConvergedDrawLG(PEP pep,PetscInt its,PetscInt nconv,Pet
 
    Level: intermediate
 
-.seealso: PEPMonitorSet()
+.seealso: [](ch:pep), `PEPMonitorSet()`
 @*/
 PetscErrorCode PEPMonitorConvergedDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscCall(PEPMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

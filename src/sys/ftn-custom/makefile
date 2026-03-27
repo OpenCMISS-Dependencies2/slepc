@@ -7,8 +7,7 @@
 #  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
-#requiresdefine   'PETSC_USE_FORTRAN_BINDINGS'
 
-MANSEC   = sys
+MANSEC   = Sys
 
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common

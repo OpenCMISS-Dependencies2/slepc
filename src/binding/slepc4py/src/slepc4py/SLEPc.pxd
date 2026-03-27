@@ -1,6 +1,3 @@
-# Author:  Lisandro Dalcin
-# Contact: dalcinl@gmail.com
-
 # -----------------------------------------------------------------------------
 
 cdef extern from "<slepc.h>":
@@ -34,6 +31,9 @@ cdef extern from "<slepc.h>":
 
     struct _p_MFN
     ctypedef _p_MFN* SlepcMFN "MFN"
+
+    struct _p_LME
+    ctypedef _p_LME* SlepcLME "LME"
 
 # -----------------------------------------------------------------------------
 
@@ -98,5 +98,11 @@ ctypedef public api class MFN(Object) [
     object PySlepcMFNObject,
     ]:
     cdef SlepcMFN mfn
+
+ctypedef public api class LME(Object) [
+    type   PySlepcLME_Type,
+    object PySlepcLMEObject,
+    ]:
+    cdef SlepcLME lme
 
 # -----------------------------------------------------------------------------

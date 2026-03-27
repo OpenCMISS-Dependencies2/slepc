@@ -162,7 +162,7 @@ int main(int argc,char **argv)
       test:
          suffix: 1_scalapack
          nsize: {{1 2 3}}
-         requires: scalapack
+         requires: scalapack !__float128
          args: -eps_type scalapack
       test:
          suffix: 1_elpa
@@ -186,6 +186,7 @@ int main(int argc,char **argv)
       test:
          suffix: 1_ciss_ksps
          args: -eps_ciss_usest 0 -eps_ciss_integration_points 12
+         requires: !__float128
       test:
          suffix: 1_ciss_gnhep
          args: -eps_gen_non_hermitian -skiporth

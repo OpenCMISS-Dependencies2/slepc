@@ -288,15 +288,15 @@ static PetscErrorCode EPSBLOPEXSetBlockSize_BLOPEX(EPS eps,PetscInt bs)
    Logically Collective
 
    Input Parameters:
-+  eps - the eigenproblem solver context
++  eps - the linear eigensolver context
 -  bs  - the block size
 
    Options Database Key:
-.  -eps_blopex_blocksize - Sets the block size
+.  -eps_blopex_blocksize bs - sets the block size
 
    Level: advanced
 
-.seealso: EPSBLOPEXGetBlockSize()
+.seealso: [](ch:eps), `EPSBLOPEX`, `EPSBLOPEXGetBlockSize()`
 @*/
 PetscErrorCode EPSBLOPEXSetBlockSize(EPS eps,PetscInt bs)
 {
@@ -322,14 +322,14 @@ static PetscErrorCode EPSBLOPEXGetBlockSize_BLOPEX(EPS eps,PetscInt *bs)
    Not Collective
 
    Input Parameter:
-.  eps - the eigenproblem solver context
+.  eps - the linear eigensolver context
 
    Output Parameter:
 .  bs - the block size
 
    Level: advanced
 
-.seealso: EPSBLOPEXSetBlockSize()
+.seealso: [](ch:eps), `EPSBLOPEX`, `EPSBLOPEXSetBlockSize()`
 @*/
 PetscErrorCode EPSBLOPEXGetBlockSize(EPS eps,PetscInt *bs)
 {
@@ -352,7 +352,6 @@ static PetscErrorCode EPSReset_BLOPEX(EPS eps)
 static PetscErrorCode EPSDestroy_BLOPEX(EPS eps)
 {
   PetscFunctionBegin;
-  LOBPCG_DestroyRandomContext();
   PetscCall(PetscFree(eps->data));
   PetscCall(PetscObjectComposeFunction((PetscObject)eps,"EPSBLOPEXSetBlockSize_C",NULL));
   PetscCall(PetscObjectComposeFunction((PetscObject)eps,"EPSBLOPEXGetBlockSize_C",NULL));
@@ -370,7 +369,7 @@ static PetscErrorCode EPSView_BLOPEX(EPS eps,PetscViewer viewer)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode EPSSetFromOptions_BLOPEX(EPS eps,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode EPSSetFromOptions_BLOPEX(EPS eps,PetscOptionItems PetscOptionsObject)
 {
   PetscBool      flg;
   PetscInt       bs;
@@ -382,11 +381,20 @@ static PetscErrorCode EPSSetFromOptions_BLOPEX(EPS eps,PetscOptionItems *PetscOp
     if (flg) PetscCall(EPSBLOPEXSetBlockSize(eps,bs));
 
   PetscOptionsHeadEnd();
-
-  LOBPCG_SetFromOptionsRandomContext();
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   EPSBLOPEX - EPSBLOPEX = "blopex" - A wrapper to BLOPEX {cite:p}`Kny07`.
+
+   Note:
+   In principle, the method used here is the same as in `EPSLOBPCG`, but in
+   practice convergence may be different.
+
+   Level: beginner
+
+.seealso: [](ch:eps), `EPS`, `EPSType`, `EPSSetType()`
+M*/
 SLEPC_EXTERN PetscErrorCode EPSCreate_BLOPEX(EPS eps)
 {
   EPS_BLOPEX     *ctx;
@@ -407,7 +415,6 @@ SLEPC_EXTERN PetscErrorCode EPSCreate_BLOPEX(EPS eps)
   eps->ops->backtransform  = EPSBackTransform_Default;
   eps->ops->setdefaultst   = EPSSetDefaultST_GMRES;
 
-  LOBPCG_InitRandomContext(PetscObjectComm((PetscObject)eps),NULL);
   PetscCall(PetscObjectComposeFunction((PetscObject)eps,"EPSBLOPEXSetBlockSize_C",EPSBLOPEXSetBlockSize_BLOPEX));
   PetscCall(PetscObjectComposeFunction((PetscObject)eps,"EPSBLOPEXGetBlockSize_C",EPSBLOPEXGetBlockSize_BLOPEX));
   if (slepc_blopex_useconstr < 0) PetscCall(PetscObjectComposedDataRegister(&slepc_blopex_useconstr));

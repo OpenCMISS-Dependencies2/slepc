@@ -30,13 +30,13 @@ SLEPC_EXTERN PetscErrorCode SVDCreate_PRIMME(SVD);
 #endif
 
 /*@C
-   SVDRegisterAll - Registers all the singular value solvers in the SVD package.
+   SVDRegisterAll - Registers all the singular value solvers in the `SVD` package.
 
    Not Collective
 
    Level: advanced
 
-.seealso: SVDRegister()
+.seealso: [](ch:svd), `SVDRegister()`
 @*/
 PetscErrorCode SVDRegisterAll(void)
 {
@@ -65,13 +65,13 @@ PetscErrorCode SVDRegisterAll(void)
 }
 
 /*@C
-  SVDMonitorRegisterAll - Registers all the monitors in the SVD package.
+  SVDMonitorRegisterAll - Registers all the monitors in the `SVD` package.
 
   Not Collective
 
   Level: advanced
 
-.seealso: SVDMonitorRegister()
+.seealso: [](ch:svd), `SVDMonitorRegister()`
 @*/
 PetscErrorCode SVDMonitorRegisterAll(void)
 {
@@ -83,8 +83,8 @@ PetscErrorCode SVDMonitorRegisterAll(void)
   PetscCall(SVDMonitorRegister("first_approximation",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,SVDMonitorFirstDrawLG,SVDMonitorFirstDrawLGCreate,NULL));
   PetscCall(SVDMonitorRegister("all_approximations",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,SVDMonitorAll,NULL,NULL));
   PetscCall(SVDMonitorRegister("all_approximations",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,SVDMonitorAllDrawLG,SVDMonitorAllDrawLGCreate,NULL));
-  PetscCall(SVDMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,SVDMonitorConverged,SVDMonitorConvergedCreate,SVDMonitorConvergedDestroy));
-  PetscCall(SVDMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,SVDMonitorConvergedDrawLG,SVDMonitorConvergedDrawLGCreate,SVDMonitorConvergedDestroy));
+  PetscCall(SVDMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,SVDMonitorConverged,SVDMonitorConvergedCreate,PetscViewerAndFormatDestroy));
+  PetscCall(SVDMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,SVDMonitorConvergedDrawLG,SVDMonitorConvergedDrawLGCreate,PetscViewerAndFormatDestroy));
   PetscCall(SVDMonitorRegister("conditioning",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,SVDMonitorConditioning,NULL,NULL));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

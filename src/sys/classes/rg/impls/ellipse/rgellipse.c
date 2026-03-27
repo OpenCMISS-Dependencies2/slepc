@@ -53,23 +53,23 @@ static PetscErrorCode RGEllipseSetParameters_Ellipse(RG rg,PetscScalar center,Pe
 -  vscale - vertical scale of the ellipse
 
    Options Database Keys:
-+  -rg_ellipse_center - Sets the center
-.  -rg_ellipse_radius - Sets the radius
--  -rg_ellipse_vscale - Sets the vertical scale
++  -rg_ellipse_center center - sets the center
+.  -rg_ellipse_radius radius - sets the radius
+-  -rg_ellipse_vscale vscale - sets the vertical scale
 
    Notes:
    In the case of complex scalars, a complex center can be provided in the
-   command line with [+/-][realnumber][+/-]realnumberi with no spaces, e.g.
-   -rg_ellipse_center 1.0+2.0i
+   command line with `[+/-][realnumber][+/-]realnumberi` with no spaces, e.g.,
+   `-rg_ellipse_center 1.0+2.0i`.
 
    When PETSc is built with real scalars, the center is restricted to a real value.
 
-   For radius and vscale, you can use PETSC_CURRENT to keep the current value, and
-   PETSC_DETERMINE to set them to a default of 1.
+   For `radius` and `vscale`, you can use `PETSC_CURRENT` to keep the current value, and
+   `PETSC_DETERMINE` to set them to a default of 1.
 
    Level: advanced
 
-.seealso: RGEllipseGetParameters()
+.seealso: [](sec:rg), `RGELLIPSE`, `RGEllipseGetParameters()`
 @*/
 PetscErrorCode RGEllipseSetParameters(RG rg,PetscScalar center,PetscReal radius,PetscReal vscale)
 {
@@ -108,7 +108,7 @@ static PetscErrorCode RGEllipseGetParameters_Ellipse(RG rg,PetscScalar *center,P
 
    Level: advanced
 
-.seealso: RGEllipseSetParameters()
+.seealso: [](sec:rg), `RGELLIPSE`, `RGEllipseSetParameters()`
 @*/
 PetscErrorCode RGEllipseGetParameters(RG rg,PetscScalar *center,PetscReal *radius,PetscReal *vscale)
 {
@@ -213,7 +213,7 @@ static PetscErrorCode RGComputeQuadrature_Ellipse(RG rg,RGQuadRule quad,PetscInt
 #if defined(PETSC_USE_COMPLEX)
     theta = 2.0*PETSC_PI*(i+0.5)/n;
     zn[i] = PetscCMPLX(PetscCosReal(theta),ctx->vscale*PetscSinReal(theta));
-    w[i]  = rg->sfactor*ctx->radius*(PetscCMPLX(ctx->vscale*PetscCosReal(theta),PetscSinReal(theta)))/n;
+    w[i]  = (PetscCMPLX(ctx->vscale*PetscCosReal(theta),PetscSinReal(theta)))*ctx->radius*rg->sfactor/n;
 #else
     theta = PETSC_PI*(i+0.5)/n;
     zn[i] = PetscCosReal(theta);
@@ -252,7 +252,7 @@ static PetscErrorCode RGIsAxisymmetric_Ellipse(RG rg,PetscBool vertical,PetscBoo
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode RGSetFromOptions_Ellipse(RG rg,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode RGSetFromOptions_Ellipse(RG rg,PetscOptionItems PetscOptionsObject)
 {
   PetscScalar    s;
   PetscReal      r1,r2;
@@ -279,6 +279,21 @@ static PetscErrorCode RGDestroy_Ellipse(RG rg)
   PetscCall(PetscObjectComposeFunction((PetscObject)rg,"RGEllipseGetParameters_C",NULL));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   RGELLIPSE - RGELLIPSE = "ellipse" - A region consisting of an ellipse defined by
+   its center, radius and vertical scale (1 by default), specified with
+   `RGEllipseSetParameters()`.
+
+   Note:
+   The following figure shows an example of an elliptic region.
+
+   ![Elliptic region](../../_static/images/manual/svg/fig-rg-ellipse.svg)
+
+   Level: beginner
+
+.seealso: [](sec:rg), `RG`, `RGType`, `RGSetType()`, `RGEllipseSetParameters()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode RGCreate_Ellipse(RG rg)
 {

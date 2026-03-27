@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Illustrates the use of shell spectral transformations. "
+static char help[] = "Illustrates the use of shell spectral transformations.\n\n"
   "The problem to be solved is the same as ex1.c and"
   "corresponds to the Laplacian operator in 1 dimension.\n\n"
   "The command line options are:\n"
@@ -30,7 +30,7 @@ PetscErrorCode STApplyTranspose_User(ST,Vec,Vec);
 PetscErrorCode STApplyHermitianTranspose_User(ST,Vec,Vec);
 #endif
 PetscErrorCode STBackTransform_User(ST,PetscInt,PetscScalar*,PetscScalar*);
-PetscErrorCode STDestroy_User(SampleShellST*);
+PetscErrorCode STDestroy_User(ST);
 
 int main (int argc,char **argv)
 {
@@ -101,6 +101,7 @@ int main (int argc,char **argv)
        this context can be defined to contain any application-specific data. */
     PetscCall(STCreate_User(&shell));
     PetscCall(STShellSetContext(st,shell));
+    PetscCall(STShellSetDestroy(st,STDestroy_User));
 
     /* (Required) Set the user-defined routine for applying the operator */
     PetscCall(STShellSetApply(st,STApply_User));
@@ -150,7 +151,6 @@ int main (int argc,char **argv)
     PetscCall(EPSErrorView(eps,EPS_ERROR_RELATIVE,PETSC_VIEWER_STDOUT_WORLD));
     PetscCall(PetscViewerPopFormat(PETSC_VIEWER_STDOUT_WORLD));
   }
-  if (isShell) PetscCall(STDestroy_User(shell));
   PetscCall(EPSDestroy(&eps));
   PetscCall(MatDestroy(&A));
   PetscCall(SlepcFinalize());
@@ -317,11 +317,14 @@ PetscErrorCode STBackTransform_User(ST st,PetscInt n,PetscScalar *eigr,PetscScal
    spectral transformation context.
 
    Input Parameter:
-.  shell - user-defined spectral transformation context
+.  st - spectral transformation context
 */
-PetscErrorCode STDestroy_User(SampleShellST *shell)
+PetscErrorCode STDestroy_User(ST st)
 {
+  SampleShellST *shell;
+
   PetscFunctionBeginUser;
+  PetscCall(STShellGetContext(st,&shell));
   PetscCall(KSPDestroy(&shell->ksp));
   PetscCall(PetscFree(shell));
   PetscFunctionReturn(PETSC_SUCCESS);

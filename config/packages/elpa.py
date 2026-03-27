@@ -18,13 +18,12 @@ class Elpa(package.Package):
     self.packagetype    = 'gnu'
     self.installable    = True
     self.downloadable   = True
-    self.version        = '2024.03.001'
+    self.version        = '2026.02.001'
     self.archive        = 'elpa-'+self.version+'.tar.gz'
     self.url            = 'https://elpa.mpcdf.mpg.de/software/tarball-archive/Releases/'+self.version+'/'+self.archive
-    self.supportssingle = True
     self.fortran        = True
+    self.supportsprecis.append('single')
     self.ProcessArgs(argdb)
-
 
   def Precondition(self,slepc,petsc):
     pkg = self.packagename.upper()
@@ -33,7 +32,6 @@ class Elpa(package.Package):
     if petsc.language == 'c++':
       self.log.Exit('The ELPA interface currently does not support compilation with C++')
     package.Package.Precondition(self,slepc,petsc)
-
 
   def SampleCode(self,petsc):
     code = '#include <stdlib.h>\n'
@@ -48,7 +46,6 @@ class Elpa(package.Package):
     code += '  elpa_uninit(&error);\n'
     code += '  return 0;\n}\n'
     return code
-
 
   def Check(self,slepcconf,slepcvars,petsc,archdir):
     code = self.SampleCode(petsc)
@@ -89,19 +86,13 @@ class Elpa(package.Package):
 
     self.log.Exit('Unable to link with ELPA library in directories'+' '.join(dirs)+' with libraries and link flags '+' '.join(libs))
 
-
   def DownloadAndInstall(self,slepcconf,slepcvars,slepc,petsc,archdir,prefixdir):
     externdir = slepc.GetExternalPackagesDir(archdir)
     builddir  = self.Download(externdir,slepc.downloaddir)
     incdir,libdir = slepc.CreatePrefixDirs(prefixdir)
 
-    # Check for autoreconf
-    (result,output) = self.RunCommand('autoreconf --help')
-    if result:
-      self.log.Exit('--download-elpa requires that the command autoreconf is available on your PATH')
-
     # Build package
-    confopt = ['--prefix='+prefixdir, '--libdir='+os.path.join(prefixdir,'lib'), 'CC="'+petsc.cc+'"', 'CFLAGS="'+petsc.getCFlags()+'"', 'F77="'+petsc.fc+'"', 'FFLAGS="'+petsc.getFFlags()+'"', 'FC="'+petsc.fc+'"', 'FCFLAGS="'+petsc.getFFlags()+'"', 'CXX="'+petsc.cxx+'"', 'CXXFLAGS="'+petsc.getCXXFlags()+'"', 'CPP="'+petsc.cpp+'"', 'SCALAPACK_LDFLAGS="'+petsc.scalapack_lib+'"', '--disable-sse', '--disable-sse-assembly', '--disable-avx', '--disable-avx2', '--disable-avx512', '-disable-c-tests', '-disable-cpp-tests']
+    confopt = ['--prefix='+prefixdir, '--libdir='+os.path.join(prefixdir,'lib'), 'CC="'+petsc.cc+'"', 'CFLAGS="'+petsc.getCFlags()+'"', 'F77="'+petsc.fc+'"', 'FFLAGS="'+petsc.getFFlags()+'"', 'FC="'+petsc.fc+'"', 'FCFLAGS="'+petsc.getFFlags()+'"', 'CXX="'+petsc.cxx+'"', 'CXXFLAGS="'+petsc.getCXXFlags()+'"', 'CPP="'+petsc.cpp+'"', 'SCALAPACK_LDFLAGS="'+petsc.scalapack_lib+'"', '--disable-sse', '--disable-sse-assembly', '--disable-avx', '--disable-avx2', '--disable-avx512', '--disable-c-tests', '--disable-cpp-tests', '--disable-fortran-tests', '--disable-Fortran-tests']
     if petsc.fc_version.startswith('nvf'):
       confopt.append('LIBS="'+petsc.blaslapack_lib+' -lnvf"')
     else:
@@ -138,4 +129,3 @@ class Elpa(package.Package):
 
     self.havepackage = True
     self.packageflags = l+' '+f
-

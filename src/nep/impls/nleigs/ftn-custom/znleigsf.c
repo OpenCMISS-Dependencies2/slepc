@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-#include <petsc/private/fortranimpl.h>
+#include <petsc/private/ftnimpl.h>
 #include <slepcnep.h>
 
 #if defined(PETSC_HAVE_FORTRAN_CAPS)
@@ -31,7 +31,7 @@ static PetscErrorCode oursingularitiesfunc(NEP nep,PetscInt *maxnp,PetscScalar *
 SLEPC_EXTERN void nepnleigssetsingularitiesfunction_(NEP *nep,void (*func)(NEP*,PetscInt*,PetscScalar*,void*,PetscErrorCode*),void *ctx,PetscErrorCode *ierr)
 {
   CHKFORTRANNULLOBJECT(ctx);
-  *ierr = PetscObjectSetFortranCallback((PetscObject)*nep,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.singularities,(PetscVoidFunction)func,ctx); if (*ierr) return;
+  *ierr = PetscObjectSetFortranCallback((PetscObject)*nep,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.singularities,(PetscFortranCallbackFn*)func,ctx); if (*ierr) return;
   *ierr = NEPNLEIGSSetSingularitiesFunction(*nep,oursingularitiesfunc,*nep);
 }
 

@@ -4,11 +4,44 @@
 
 ### Added
 
+- New context destroy functions `EPSSetArbitrarySelectionContextDestroy()` and
+  `STShellSetDestroy()`.
+- Typing stubs for the Python extension module `slepc4py.SLEPc`.
+
+### Changed
+
+- A new argument "destroy" (a routine for destroying the context) has been added to
+  `DSNEPSetComputeMatrixFunction()`.
+
+## [3.24] - 2025-09-30
+
+### Added
+
+- `STFILTER`: new polynomial filter based on a truncated Chebyshev series. Use
+  `STFilterSetType()` to choose among the available filters.
+- `EPS`: new structured eigenvalue problem type `EPS_HAMILT` for the case of a matrix
+   with Hamiltonian structure created with `MatCreateHamiltonian()`.
+
+### Removed
+
+- The interface to TRLAN has been removed since it is no longer available for download.
+
+## [3.23] - 2025-03-29
+
+### Added
+
 - `SVD`: new support for a stopping test based on a threshold, so that it is possible
   to compute singular values based on how they decay until a certain limit, without
   knowing a priori how many will be finally obtained. See `SVDSetThreshold()`.
 - `EPS`: similar threshold stopping test for eigenvalues, see `EPSSetThreshold()`.
 - New interface to external package ChASE for standard Hermitian eigenproblems.
+
+### Changed
+
+- The Fortran interface has been updated, following the changes in PETSc. Now it is
+  fully compatible with Fortran 90 using modules. The compiler will check the type
+  of arguments when calling subroutines, including enumerates, as well as in other
+  parts of the code. The Fortran interface is no longer generated with `bfort`.
 
 ## [3.22] - 2024-09-29
 
@@ -396,7 +429,7 @@
 - Released under GNU LGPL license.
 - Improved support for the case that many eigenpairs are to be computed. This is especially so in
   the default eigensolver (Krylov-Schur) for symmetric problems, as well as for SVD computations. The
-  user can control the behaviour of the solver with a new parameter `mpd`, see `EPSSetDimensions()`.
+  user can control the behavior of the solver with a new parameter `mpd`, see `EPSSetDimensions()`.
 - Support for harmonic projection in the default eigensolver (Krylov-Schur), see `EPSSetExtraction()`.
   This can be useful for computing interior or rightmost eigenvalues without the need of a spectral
   transformation.
@@ -489,33 +522,35 @@
 - Classical and modified Gram-Schmidt orthogonalization use iterative refinement, with user options
   for parameter adjustment.
 
-[unreleased]: https://gitlab.com/slepc/slepc/compare/v3.22...main
-[3.22]: https://gitlab.com/slepc/slepc/compare/v3.21...v3.22
-[3.21]: https://gitlab.com/slepc/slepc/compare/v3.20...v3.21
-[3.20]: https://gitlab.com/slepc/slepc/compare/v3.19...v3.20
-[3.19]: https://gitlab.com/slepc/slepc/compare/v3.18...v3.19
-[3.18]: https://gitlab.com/slepc/slepc/compare/v3.17...v3.18
-[3.17]: https://gitlab.com/slepc/slepc/compare/v3.16...v3.17
-[3.16]: https://gitlab.com/slepc/slepc/compare/v3.15...v3.16
-[3.15]: https://gitlab.com/slepc/slepc/compare/v3.14...v3.15
-[3.14]: https://gitlab.com/slepc/slepc/compare/v3.13...v3.14
-[3.13]: https://gitlab.com/slepc/slepc/compare/v3.12...v3.13
-[3.12]: https://gitlab.com/slepc/slepc/compare/v3.11...v3.12
-[3.11]: https://gitlab.com/slepc/slepc/compare/v3.10...v3.11
-[3.10]: https://gitlab.com/slepc/slepc/compare/v3.9...v3.10
-[3.9]: https://gitlab.com/slepc/slepc/compare/v3.8...v3.9
-[3.8]: https://gitlab.com/slepc/slepc/compare/v3.7...v3.8
-[3.7]: https://gitlab.com/slepc/slepc/compare/v3.6...v3.7
-[3.6]: https://gitlab.com/slepc/slepc/compare/v3.5...v3.6
-[3.5]: https://gitlab.com/slepc/slepc/compare/v3.4...v3.5
-[3.4]: https://gitlab.com/slepc/slepc/compare/v3.3...v3.4
-[3.3]: https://gitlab.com/slepc/slepc/compare/v3.2...v3.3
-[3.2]: https://gitlab.com/slepc/slepc/compare/v3.1...v3.2
-[3.1]: https://gitlab.com/slepc/slepc/compare/v3.0.0...v3.1
-[3.0.0]: https://gitlab.com/slepc/slepc/compare/v2.3.3...v3.0.0
-[2.3.3]: https://gitlab.com/slepc/slepc/compare/v2.3.2...v2.3.3
-[2.3.2]: https://gitlab.com/slepc/slepc/compare/v2.3.1...v2.3.2
-[2.3.1]: https://gitlab.com/slepc/slepc/compare/v2.3.0...v2.3.1
-[2.3.0]: https://gitlab.com/slepc/slepc/compare/v2.2.1...v2.3.0
-[2.2.1]: https://gitlab.com/slepc/slepc/compare/v2.2.0...v2.2.1
+[unreleased]: https://gitlab.com/slepc/slepc/-/tree/main
+[3.24]: https://gitlab.com/slepc/slepc/-/tree/release
+[3.23]: https://gitlab.com/slepc/slepc/-/tree/release-3.23
+[3.22]: https://gitlab.com/slepc/slepc/-/tree/release-3.22
+[3.21]: https://gitlab.com/slepc/slepc/-/tree/release-3.21
+[3.20]: https://gitlab.com/slepc/slepc/-/tree/release-3.20
+[3.19]: https://gitlab.com/slepc/slepc/-/tree/release-3.19
+[3.18]: https://gitlab.com/slepc/slepc/-/tree/release-3.18
+[3.17]: https://gitlab.com/slepc/slepc/-/tree/release-3.17
+[3.16]: https://gitlab.com/slepc/slepc/-/tree/release-3.16
+[3.15]: https://gitlab.com/slepc/slepc/-/tree/release-3.15
+[3.14]: https://gitlab.com/slepc/slepc/-/tree/release-3.14
+[3.13]: https://gitlab.com/slepc/slepc/-/tree/release-3.13
+[3.12]: https://gitlab.com/slepc/slepc/-/tags/v3.12
+[3.11]: https://gitlab.com/slepc/slepc/-/tags/v3.11
+[3.10]: https://gitlab.com/slepc/slepc/-/tags/v3.10
+[3.9]: https://gitlab.com/slepc/slepc/-/tags/v3.9
+[3.8]: https://gitlab.com/slepc/slepc/-/tags/v3.8
+[3.7]: https://gitlab.com/slepc/slepc/-/tags/v3.7
+[3.6]: https://gitlab.com/slepc/slepc/-/tags/v3.6
+[3.5]: https://gitlab.com/slepc/slepc/-/tags/v3.5
+[3.4]: https://gitlab.com/slepc/slepc/-/tags/v3.4
+[3.3]: https://gitlab.com/slepc/slepc/-/tags/v3.3
+[3.2]: https://gitlab.com/slepc/slepc/-/tags/v3.2
+[3.1]: https://gitlab.com/slepc/slepc/-/tags/v3.1
+[3.0.0]: https://gitlab.com/slepc/slepc/-/tags/v3.0.0
+[2.3.3]: https://gitlab.com/slepc/slepc/-/tags/v2.3.3
+[2.3.2]: https://gitlab.com/slepc/slepc/-/tags/v2.3.2
+[2.3.1]: https://gitlab.com/slepc/slepc/-/tags/v2.3.1
+[2.3.0]: https://gitlab.com/slepc/slepc/-/tags/v2.3.0
+[2.2.1]: https://gitlab.com/slepc/slepc/-/tags/v2.2.1
 [2.2.0]: https://gitlab.com/slepc/slepc/-/tags/v2.2.0

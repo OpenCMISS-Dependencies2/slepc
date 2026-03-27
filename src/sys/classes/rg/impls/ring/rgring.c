@@ -83,40 +83,40 @@ static PetscErrorCode RGRingSetParameters_Ring(RG rg,PetscScalar center,PetscRea
 -  width     - width of the ring
 
    Options Database Keys:
-+  -rg_ring_center     - Sets the center
-.  -rg_ring_radius     - Sets the radius
-.  -rg_ring_vscale     - Sets the vertical scale
-.  -rg_ring_startangle - Sets the right-hand side angle
-.  -rg_ring_endangle   - Sets the left-hand side angle
--  -rg_ring_width      - Sets the width of the ring
++  -rg_ring_center center        - sets the center
+.  -rg_ring_radius radius        - sets the radius
+.  -rg_ring_vscale vscale        - sets the vertical scale
+.  -rg_ring_startangle start_ang - sets the right-hand side angle
+.  -rg_ring_endangle end_ang     - sets the left-hand side angle
+-  -rg_ring_width width          - sets the width of the ring
 
    Notes:
-   The values of center, radius and vscale have the same meaning as in the
-   ellipse region. The startangle and endangle define the span of the ring
-   (by default it is the whole ring), while the width is the separation
+   The values of `center`, `radius` and `vscale` have the same meaning as in the
+   ellipse region. The `start_ang` and `end_ang` define the span of the ring
+   (by default it is the whole ring), while the `width` is the separation
    between the two concentric ellipses (above and below the radius by
-   width/2).
+   `width/2`).
 
    The start and end angles are expressed as a fraction of the circumference.
-   The allowed range is [0..1], with 0 corresponding to 0 radians, 0.25 to
-   pi/2 radians, and so on. It is allowed to have startangle>endangle, in
+   The allowed range is $[0,\dots,1]$, with `0` corresponding to 0 radians, `0.25` to
+   $\pi/2$ radians, and so on. It is allowed to have `start_ang`>`end_ang`, in
    which case the ring region crosses over the zero angle.
 
    In the case of complex scalars, a complex center can be provided in the
-   command line with [+/-][realnumber][+/-]realnumberi with no spaces, e.g.
-   -rg_ring_center 1.0+2.0i
+   command line with `[+/-][realnumber][+/-]realnumberi` with no spaces, e.g.,
+   `-rg_ring_center 1.0+2.0i`.
 
    When PETSc is built with real scalars, the center is restricted to a real value,
    and the start and end angles must be such that the region is symmetric with
    respect to the real axis.
 
-   For all arguments except center, you can use PETSC_CURRENT to keep the current
-   value, and PETSC_DETERMINE to set them to a default value (1 for radius, vscale,
-   end_ang, 0 for start_and, and 0.1 for width).
+   For all arguments except `center`, you can use `PETSC_CURRENT` to keep the current
+   value, and `PETSC_DETERMINE` to set them to a default value (1 for `radius`, `vscale`,
+   `end_ang`, 0 for `start_ang`, and 0.1 for `width`).
 
    Level: advanced
 
-.seealso: RGRingGetParameters()
+.seealso: [](sec:rg), `RGRING`, `RGRingGetParameters()`, `RGELLIPSE`
 @*/
 PetscErrorCode RGRingSetParameters(RG rg,PetscScalar center,PetscReal radius,PetscReal vscale,PetscReal start_ang,PetscReal end_ang,PetscReal width)
 {
@@ -164,7 +164,7 @@ static PetscErrorCode RGRingGetParameters_Ring(RG rg,PetscScalar *center,PetscRe
 
    Level: advanced
 
-.seealso: RGRingSetParameters()
+.seealso: [](sec:rg), `RGRING`, `RGRingSetParameters()`
 @*/
 PetscErrorCode RGRingGetParameters(RG rg,PetscScalar *center,PetscReal *radius,PetscReal *vscale,PetscReal *start_ang,PetscReal *end_ang,PetscReal *width)
 {
@@ -389,7 +389,7 @@ static PetscErrorCode RGIsAxisymmetric_Ring(RG rg,PetscBool vertical,PetscBool *
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode RGSetFromOptions_Ring(RG rg,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode RGSetFromOptions_Ring(RG rg,PetscOptionItems PetscOptionsObject)
 {
   PetscScalar    s;
   PetscReal      r1,r2,r3,r4,r5;
@@ -419,6 +419,21 @@ static PetscErrorCode RGDestroy_Ring(RG rg)
   PetscCall(PetscObjectComposeFunction((PetscObject)rg,"RGRingGetParameters_C",NULL));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   RGRING - RGRING = "ring" - A ring region similar to an ellipse but consisting
+   of a thin stripe along the ellipse with optional start and end angles.
+
+   Note:
+   The parameters can be set with `RGRingSetParameters()`.
+   The following figure shows an example of a ring region.
+
+   ![Ring region](../../_static/images/manual/svg/fig-rg-ring.svg)
+
+   Level: beginner
+
+.seealso: [](sec:rg), `RG`, `RGType`, `RGSetType()`, `RGRingSetParameters()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode RGCreate_Ring(RG rg)
 {

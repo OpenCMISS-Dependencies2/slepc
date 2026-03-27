@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Solves the same eigenproblem as in example ex2, but using a shell matrix. "
+static char help[] = "Solves the same eigenproblem as in example ex2, but using a shell matrix.\n\n"
   "The problem is a standard symmetric eigenproblem corresponding to the 2-D Laplacian operator.\n\n"
   "The command line options are:\n"
   "  -n <n>, where <n> = number of grid subdivisions in both x and y dimensions.\n\n";
@@ -44,9 +44,9 @@ int main(int argc,char **argv)
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
   PetscCall(MatCreateShell(PETSC_COMM_WORLD,N,N,N,N,&n,&A));
-  PetscCall(MatShellSetOperation(A,MATOP_MULT,(void(*)(void))MatMult_Laplacian2D));
-  PetscCall(MatShellSetOperation(A,MATOP_MULT_TRANSPOSE,(void(*)(void))MatMult_Laplacian2D));
-  PetscCall(MatShellSetOperation(A,MATOP_GET_DIAGONAL,(void(*)(void))MatGetDiagonal_Laplacian2D));
+  PetscCall(MatShellSetOperation(A,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Laplacian2D));
+  PetscCall(MatShellSetOperation(A,MATOP_MULT_TRANSPOSE,(PetscErrorCodeFn*)MatMult_Laplacian2D));
+  PetscCall(MatShellSetOperation(A,MATOP_GET_DIAGONAL,(PetscErrorCodeFn*)MatGetDiagonal_Laplacian2D));
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                 Create the eigensolver and set various options
@@ -180,6 +180,11 @@ PetscErrorCode MatGetDiagonal_Laplacian2D(Mat A,Vec diag)
    test:
       suffix: 1
       args: -n 72 -eps_nev 4 -eps_ncv 20 -terse
+      requires: !single
+
+   test:
+      suffix: 2
+      args: -eps_nev 4 -st_type sinvert -st_ksp_type cg -st_pc_type jacobi -terse
       requires: !single
 
 TEST*/

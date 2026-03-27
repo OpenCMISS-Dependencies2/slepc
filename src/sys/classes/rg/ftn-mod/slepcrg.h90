@@ -1,0 +1,23 @@
+!
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!  SLEPc - Scalable Library for Eigenvalue Problem Computations
+!  Copyright (c) 2002-, Universitat Politecnica de Valencia, Spain
+!
+!  This file is part of SLEPc.
+!  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!
+interface
+  subroutine RGPolygonGetVertices(rg, n, vr, vi, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tRG
+    RG rg
+    PetscInt n
+    PetscScalar vr(*)
+    PetscScalar vi(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+end interface
+#if defined(_WIN32) && defined(PETSC_USE_SHARED_LIBRARIES)
+!DEC$ ATTRIBUTES DLLEXPORT::RGPolygonGetVertices
+#endif

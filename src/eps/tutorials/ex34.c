@@ -76,9 +76,9 @@ int main(int argc,char **argv)
     PetscCall(MatGetLocalSize(P,&m,&n));
     PetscCall(MatGetSize(P,&M,&N));
     PetscCall(MatCreateShell(comm,m,n,M,N,&user,&A));
-    PetscCall(MatShellSetOperation(A,MATOP_MULT,(void(*)(void))MatMult_A));
+    PetscCall(MatShellSetOperation(A,MATOP_MULT,(PetscErrorCodeFn*)MatMult_A));
     PetscCall(MatCreateShell(comm,m,n,M,N,&user,&B));
-    PetscCall(MatShellSetOperation(B,MATOP_MULT,(void(*)(void))MatMult_B));
+    PetscCall(MatShellSetOperation(B,MATOP_MULT,(PetscErrorCodeFn*)MatMult_B));
   } else {
     PetscCall(DMCreateMatrix(dm,&A));
     PetscCall(MatDuplicate(A,MAT_COPY_VALUES,&B));
@@ -388,7 +388,7 @@ PetscErrorCode FormFunctionAB(SNES snes,Vec x,Vec Ax,Vec Bx,void *ctx)
   PetscFunctionBegin;
   /*
    * In real applications, users should have a generic formFunctionAB which
-   * forms Ax and Bx simultaneously for an more efficient calculation.
+   * forms Ax and Bx simultaneously for a more efficient calculation.
    * In this example, we just call FormFunctionA+FormFunctionB to mimic how
    * to use FormFunctionAB
    */
@@ -566,7 +566,7 @@ PetscErrorCode MatMult_B(Mat B,Vec x,Vec y)
       test:
          suffix: 11
          requires: complex
-         args: -use_custom_norm {{0 1}} -sign_normalization 0 -eps_power_snes_type nrichardson -eps_power_snes_atol 1e-12
+         args: -use_custom_norm {{0 1}} -sign_normalization 0 -eps_power_snes_type nrichardson -eps_power_snes_atol 1e-12 -eps_power_snes_linesearch_atol 1e-22
       test:
          suffix: 12
          requires: complex

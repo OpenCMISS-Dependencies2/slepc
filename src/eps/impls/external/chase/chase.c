@@ -152,17 +152,20 @@ static PetscErrorCode EPSCHASESetDegree_ChASE(EPS eps,PetscInt deg,PetscBool opt
    Logically Collective
 
    Input Parameters:
-+  eps - the eigenproblem solver context
++  eps - the linear eigensolver context
 .  deg - initial degree of Chebyshev polynomial filter
 -  opt - internal optimization of polynomial degree
 
    Options Database Keys:
-+  -eps_chase_degree - Sets the initial degree
--  -eps_chase_degree_opt - Enables/disables the optimization
++  -eps_chase_degree deg              - set the initial degree
+-  -eps_chase_degree_opt (true|false) - toggle the optimization
+
+   Note:
+   See the documentation of ChASE {cite:p}`Win19` for details.
 
    Level: advanced
 
-.seealso: EPSCHASEGetDegree()
+.seealso: [](ch:eps), `EPSCHASE`, `EPSCHASEGetDegree()`
 @*/
 PetscErrorCode EPSCHASESetDegree(EPS eps,PetscInt deg,PetscBool opt)
 {
@@ -190,7 +193,7 @@ static PetscErrorCode EPSCHASEGetDegree_ChASE(EPS eps,PetscInt *deg,PetscBool *o
    Not Collective
 
    Input Parameter:
-.  eps - the eigenproblem solver context
+.  eps - the linear eigensolver context
 
    Output Parameters:
 +  deg - initial degree of Chebyshev polynomial filter
@@ -198,7 +201,7 @@ static PetscErrorCode EPSCHASEGetDegree_ChASE(EPS eps,PetscInt *deg,PetscBool *o
 
    Level: advanced
 
-.seealso: EPSCHASESetDegree()
+.seealso: [](ch:eps), `EPSCHASE`, `EPSCHASESetDegree()`
 @*/
 PetscErrorCode EPSCHASEGetDegree(EPS eps,PetscInt *deg,PetscBool *opt)
 {
@@ -208,7 +211,7 @@ PetscErrorCode EPSCHASEGetDegree(EPS eps,PetscInt *deg,PetscBool *opt)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode EPSSetFromOptions_ChASE(EPS eps,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode EPSSetFromOptions_ChASE(EPS eps,PetscOptionItems PetscOptionsObject)
 {
   EPS_ChASE   *ctx = (EPS_ChASE*)eps->data;
   PetscBool   flg1,flg2;
@@ -260,6 +263,22 @@ static PetscErrorCode EPSView_ChASE(EPS eps,PetscViewer viewer)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   EPSCHASE - EPSCHASE = "chase" - A wrapper to CHASE {cite:p}`Win19`.
+
+   Notes:
+   The Chebyshev Accelerated Subspace Iteration Eigensolver (ChASE) is
+   expected to be particularly efficient when computing many eigenvalues
+   at the lower end of the spectrum, in sequences of eigenproblems.
+
+   The current implementation of the interface in SLEPc is restricted
+   to the case where the matrix has a block cyclic distribution, so
+   SLEPc will redistribute the matrix to ScaLAPACK format.
+
+   Level: beginner
+
+.seealso: [](ch:eps), `EPS`, `EPSType`, `EPSSetType()`
+M*/
 SLEPC_EXTERN PetscErrorCode EPSCreate_ChASE(EPS eps)
 {
   EPS_ChASE   *ctx;

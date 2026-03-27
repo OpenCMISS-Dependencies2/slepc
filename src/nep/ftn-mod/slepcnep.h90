@@ -1,0 +1,34 @@
+!
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!  SLEPc - Scalable Library for Eigenvalue Problem Computations
+!  Copyright (c) 2002-, Universitat Politecnica de Valencia, Spain
+!
+!  This file is part of SLEPc.
+!  SLEPc is distributed under a 2-clause BSD license (see LICENSE).
+!  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+!
+interface
+  subroutine NEPNLEIGSGetRKShifts(nep, ns, shifts, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tNEP
+    NEP nep
+    PetscInt ns
+    PetscScalar shifts(*)
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+
+  subroutine NEPMonitorConvergedCreate(viewer, format, ctx, vf, ierr)
+    use, intrinsic :: ISO_C_BINDING
+    import tPetscViewer, ePetscViewerFormat
+    PetscViewer viewer
+    PetscViewerFormat format
+    type(*) ctx
+    PetscViewerAndFormat vf
+    PetscErrorCode, intent(out) :: ierr
+  end subroutine
+end interface
+
+#if defined(_WIN32) && defined(PETSC_USE_SHARED_LIBRARIES)
+!DEC$ ATTRIBUTES DLLEXPORT::NEPNLEIGSGetRKShifts
+!DEC$ ATTRIBUTES DLLEXPORT::NEPMonitorConvergedCreate
+#endif

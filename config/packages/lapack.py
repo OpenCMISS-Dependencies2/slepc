@@ -8,7 +8,6 @@
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 
-from __future__ import print_function
 import log, package
 
 class Lapack(package.Package):
@@ -128,4 +127,3 @@ class Lapack(package.Package):
           nf = i[1:]
           slepcconf.write('#define SLEPC_MISSING_LAPACK_' + nf.upper() + ' 1\n')
         else: break
-

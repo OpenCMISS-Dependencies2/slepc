@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Solves a GSVD problem with matrices loaded from a file.\n"
+static char help[] = "Solves a GSVD problem with matrices loaded from a file.\n\n"
   "The command line options are:\n"
   "  -f1 <filename>, PETSc binary file containing matrix A.\n"
   "  -f2 <filename>, PETSc binary file containing matrix B (optional). Instead of"
@@ -225,7 +225,7 @@ int main(int argc,char **argv)
          suffix: 4_hpddm
          nsize: 4
          args: -svd_type trlanczos -svd_trlanczos_explicitmatrix -svd_trlanczos_pc_type hpddm
-         args: -prefix_push svd_trlanczos_pc_hpddm_ -levels_1_st_share_sub_ksp -levels_1_eps_nev 10 -levels_1_eps_threshold 0.005 -levels_1_pc_asm_type basic -define_subdomains -levels_1_pc_asm_sub_mat_type sbaij -levels_1_sub_pc_type cholesky -prefix_pop
+         args: -prefix_push svd_trlanczos_pc_hpddm_ -levels_1_st_share_sub_ksp -levels_1_eps_nev 10 -levels_1_eps_threshold_absolute 0.005 -levels_1_pc_asm_type basic -define_subdomains -levels_1_pc_asm_sub_mat_type sbaij -levels_1_sub_pc_type cholesky -prefix_pop
          requires: hpddm
 
    testset:
@@ -249,5 +249,16 @@ int main(int argc,char **argv)
       test:
          suffix: 5_complex_cross
          args: -svd_type cross -svd_cross_explicitmatrix
+
+   testset:
+      requires: double !complex !defined(PETSC_USE_64BIT_INDICES)
+      args: -f1 ${SLEPC_DIR}/share/slepc/datafiles/matrices/rdb200.petsc -f2 tridiagonal -svd_nsv 4 -svd_smallest -terse
+      output_file: output/ex48_6.out
+      test:
+         suffix: 6_cross
+         args: -svd_type cross -svd_cross_explicitmatrix
+      test:
+         suffix: 6_cyclic
+         args: -svd_type cyclic -svd_cyclic_explicitmatrix
 
 TEST*/

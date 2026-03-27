@@ -13,6 +13,38 @@
 
 #include <slepc/private/stimpl.h>
 
+/*
+   Special STApply() for the BSE structured matrix
+
+       H = [ R  C; -C^H -R^T ].
+
+   Assumes that H is a MATNEST and x,y are VECNEST.
+
+   The bottom part of the input vector x2 is computed as
+   either conj(x1) or -conj(x1), where the sign is given by
+   s in the context SlepcMatStruct.
+*/
+static PetscErrorCode STApply_Sinvert_BSE(ST st,Vec x,Vec y)
+{
+  Vec            x1,x2;
+  PetscContainer container;
+  SlepcMatStruct mctx;
+
+  PetscFunctionBegin;
+  PetscCall(PetscObjectQuery((PetscObject)st->A[0],"SlepcMatStruct",(PetscObject*)&container));
+  PetscCall(PetscContainerGetPointer(container,(void**)&mctx));
+  PetscCall(VecNestGetSubVec(x,0,&x1));
+  PetscCall(VecNestGetSubVec(x,1,&x2));
+
+  /* x2 = +/-conj(x1) */
+  PetscCall(VecCopy(x1,x2));
+  PetscCall(VecConjugate(x2));
+  if (mctx->s==-1.0) PetscCall(VecScale(x2,-1.0));
+
+  PetscCall(STApply_Generic(st,x,y));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
 static PetscErrorCode STBackTransform_Sinvert(ST st,PetscInt n,PetscScalar *eigr,PetscScalar *eigi)
 {
   PetscInt    j;
@@ -154,6 +186,7 @@ static PetscErrorCode STSetUp_Sinvert(ST st)
       PetscCall(PCSetType(pcsub,PCLU));
       PetscCall(PetscFree(subksp));
     }
+    st->ops->apply = STApply_Sinvert_BSE;
   } else {
     if (st->P) PetscCall(KSPSetUp(st->ksp));
   }
@@ -190,6 +223,24 @@ static PetscErrorCode STSetShift_Sinvert(ST st,PetscScalar newshift)
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   STSINVERT - STSINVERT = "sinvert" - The shift-and-invert spectral
+   transformation.
+
+   Level: beginner
+
+   Notes:
+   The operator in this `ST` is $(A-\sigma B)^{-1}B$, where $A$ and $B$ are the
+   matrices set with `STSetMatrices()` and the shift $\sigma$ is given in
+   `STSetShift()`.
+
+   This is used to enhance convergence of eigenvalues in the neighborhood of
+   $\sigma$, at the cost of solving a system of linear equations at each
+   eigensolver step.
+
+.seealso: [](ch:st), `ST`, `STType`, `STSetType()`, `STSetMatrices()`, `STSetShift()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode STCreate_Sinvert(ST st)
 {

@@ -14,25 +14,6 @@
 #include <slepc/private/lmeimpl.h>   /*I "slepclme.h" I*/
 #include <petscdraw.h>
 
-PetscErrorCode LMEMonitorLGCreate(MPI_Comm comm,const char host[],const char label[],const char metric[],PetscInt l,const char *names[],int x,int y,int m,int n,PetscDrawLG *lgctx)
-{
-  PetscDraw      draw;
-  PetscDrawAxis  axis;
-  PetscDrawLG    lg;
-
-  PetscFunctionBegin;
-  PetscCall(PetscDrawCreate(comm,host,label,x,y,m,n,&draw));
-  PetscCall(PetscDrawSetFromOptions(draw));
-  PetscCall(PetscDrawLGCreate(draw,l,&lg));
-  if (names) PetscCall(PetscDrawLGSetLegend(lg,names));
-  PetscCall(PetscDrawLGSetFromOptions(lg));
-  PetscCall(PetscDrawLGGetAxis(lg,&axis));
-  PetscCall(PetscDrawAxisSetLabels(axis,"Convergence","Iteration",metric));
-  PetscCall(PetscDrawDestroy(&draw));
-  *lgctx = lg;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
 /*
    Runs the user provided monitor routines, if any.
 */
@@ -52,63 +33,71 @@ PetscErrorCode LMEMonitor(LME lme,PetscInt it,PetscReal errest)
    Logically Collective
 
    Input Parameters:
-+  lme     - linear matrix equation solver context obtained from LMECreate()
-.  monitor - pointer to function (if this is NULL, it turns off monitoring)
-.  mctx    - [optional] context for private data for the
-             monitor routine (use NULL if no context is desired)
--  monitordestroy - [optional] routine that frees monitor context (may be NULL),
-             see PetscCtxDestroyFn for the calling sequence
-
-   Calling sequence of monitor:
-$  PetscErrorCode monitor(LME lme,PetscInt its,PetscReal errest,void*mctx)
-+  lme    - linear matrix equation solver context obtained from LMECreate()
-.  its    - iteration number
-.  errest - error estimate
--  mctx   - optional monitoring context, as set by LMEMonitorSet()
++  lme            - the linear matrix equation solver context
+.  monitor        - pointer to function (if this is `NULL`, it turns off monitoring),
+                    see `LMEMonitorFn`
+.  ctx            - [optional] context for private data for the monitor routine
+                    (use `NULL` if no context is desired)
+-  monitordestroy - [optional] routine that frees monitor context (may be `NULL`),
+                    see `PetscCtxDestroyFn` for the calling sequence
 
    Options Database Keys:
-+    -lme_monitor - print the error estimate
-.    -lme_monitor draw::draw_lg - sets line graph monitor for the error estimate
--    -lme_monitor_cancel - cancels all monitors that have been hardwired into
-      a code by calls to LMEMonitorSet(), but does not cancel those set via
-      the options database.
++  -lme_monitor               - print the error estimate
+.  -lme_monitor draw::draw_lg - sets line graph monitor for the error estimate
+-  -lme_monitor_cancel        - cancels all monitors that have been hardwired into
+                                a code by calls to `LMEMonitorSet()`, but does not cancel
+                                those set via the options database
 
    Notes:
-   Several different monitoring routines may be set by calling
-   LMEMonitorSet() multiple times; all will be called in the
-   order in which they were set.
+   The options database option `-lme_monitor` and related options are the easiest way
+   to turn on `LME` iteration monitoring.
+
+   `LMEMonitorRegister()` provides a way to associate an options database key with `LME`
+   monitor function.
+
+   Several different monitoring routines may be set by calling `LMEMonitorSet()` multiple
+   times; all will be called in the order in which they were set.
+
+   Fortran Note:
+   Only a single monitor function can be set for each `LME` object.
 
    Level: intermediate
 
-.seealso: LMEMonitorCancel()
+.seealso: [](ch:lme), `LMEMonitorDefault()`, `LMEMonitorDefaultDrawLG()`, `LMEMonitorCancel()`
 @*/
-PetscErrorCode LMEMonitorSet(LME lme,PetscErrorCode (*monitor)(LME lme,PetscInt its,PetscReal errest,void*mctx),void *mctx,PetscCtxDestroyFn *monitordestroy)
+PetscErrorCode LMEMonitorSet(LME lme,LMEMonitorFn *monitor,PetscCtx ctx,PetscCtxDestroyFn *monitordestroy)
 {
+  PetscInt  i;
+  PetscBool identical;
+
   PetscFunctionBegin;
   PetscValidHeaderSpecific(lme,LME_CLASSID,1);
+  for (i=0;i<lme->numbermonitors;i++) {
+    PetscCall(PetscMonitorCompare((PetscErrorCode(*)(void))(PetscVoidFn*)monitor,ctx,monitordestroy,(PetscErrorCode (*)(void))(PetscVoidFn*)lme->monitor[i],lme->monitorcontext[i],lme->monitordestroy[i],&identical));
+    if (identical) PetscFunctionReturn(PETSC_SUCCESS);
+  }
   PetscCheck(lme->numbermonitors<MAXLMEMONITORS,PetscObjectComm((PetscObject)lme),PETSC_ERR_ARG_OUTOFRANGE,"Too many LME monitors set");
   lme->monitor[lme->numbermonitors]           = monitor;
-  lme->monitorcontext[lme->numbermonitors]    = (void*)mctx;
+  lme->monitorcontext[lme->numbermonitors]    = ctx;
   lme->monitordestroy[lme->numbermonitors++]  = monitordestroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@
-   LMEMonitorCancel - Clears all monitors for an LME object.
+   LMEMonitorCancel - Clears all monitors for an `LME` object.
 
    Logically Collective
 
-   Input Parameters:
-.  lme - linear matrix equation solver context obtained from LMECreate()
+   Input Parameter:
+.  lme - the linear matrix equation solver context
 
    Options Database Key:
-.    -lme_monitor_cancel - cancels all monitors that have been hardwired
-      into a code by calls to LMEMonitorSet(),
-      but does not cancel those set via the options database.
+.  -lme_monitor_cancel - cancels all monitors that have been hardwired into a code by calls to
+                         `LMEMonitorSet()`, but does not cancel those set via the options database.
 
    Level: intermediate
 
-.seealso: LMEMonitorSet()
+.seealso: [](ch:lme), `LMEMonitorSet()`
 @*/
 PetscErrorCode LMEMonitorCancel(LME lme)
 {
@@ -125,21 +114,21 @@ PetscErrorCode LMEMonitorCancel(LME lme)
 
 /*@C
    LMEGetMonitorContext - Gets the monitor context, as set by
-   LMEMonitorSet() for the FIRST monitor only.
+   `LMEMonitorSet()` for the FIRST monitor only.
 
    Not Collective
 
    Input Parameter:
-.  lme - linear matrix equation solver context obtained from LMECreate()
+.  lme - the linear matrix equation solver context
 
    Output Parameter:
 .  ctx - monitor context
 
    Level: intermediate
 
-.seealso: LMEMonitorSet()
+.seealso: [](ch:lme), `LMEMonitorSet()`
 @*/
-PetscErrorCode LMEGetMonitorContext(LME lme,void *ctx)
+PetscErrorCode LMEGetMonitorContext(LME lme,PetscCtxRt ctx)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(lme,LME_CLASSID,1);
@@ -154,17 +143,21 @@ PetscErrorCode LMEGetMonitorContext(LME lme,void *ctx)
    Collective
 
    Input Parameters:
-+  lme    - linear matrix equation solver context
++  lme    - the linear matrix equation solver context
 .  its    - iteration number
 .  errest - error estimate
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -lme_monitor - activates LMEMonitorDefault()
+.  -lme_monitor - activates `LMEMonitorDefault()`
+
+   Note:
+   This is not called directly by users, rather one calls `LMEMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `LME` solve.
 
    Level: intermediate
 
-.seealso: LMEMonitorSet()
+.seealso: [](ch:lme), `LMEMonitorSet()`
 @*/
 PetscErrorCode LMEMonitorDefault(LME lme,PetscInt its,PetscReal errest,PetscViewerAndFormat *vf)
 {
@@ -189,29 +182,35 @@ PetscErrorCode LMEMonitorDefault(LME lme,PetscInt its,PetscReal errest,PetscView
    Collective
 
    Input Parameters:
-+  lme    - linear matrix equation solver context
++  lme    - the linear matrix equation solver context
 .  its    - iteration number
 .  errest - error estimate
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -lme_monitor draw::draw_lg - activates LMEMonitorDefaultDrawLG()
+.  -lme_monitor draw::draw_lg - activates `LMEMonitorDefaultDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `LMEMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `LME` solve.
+
+   Call `LMEMonitorDefaultDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: LMEMonitorSet()
+.seealso: [](ch:lme), `LMEMonitorSet()`, `LMEMonitorDefaultDrawLGCreate()`
 @*/
 PetscErrorCode LMEMonitorDefaultDrawLG(LME lme,PetscInt its,PetscReal errest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscReal      x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(lme,LME_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,4);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,4);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -244,13 +243,13 @@ PetscErrorCode LMEMonitorDefaultDrawLG(LME lme,PetscInt its,PetscReal errest,Pet
 
    Level: intermediate
 
-.seealso: LMEMonitorSet()
+.seealso: [](ch:lme), `LMEMonitorSet()`
 @*/
 PetscErrorCode LMEMonitorDefaultDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(LMEMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

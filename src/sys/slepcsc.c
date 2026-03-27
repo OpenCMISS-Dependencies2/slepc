@@ -35,7 +35,7 @@
 
    Level: developer
 
-.seealso: SlepcSortEigenvalues(), SlepcSC
+.seealso: `SlepcSortEigenvalues()`, `SlepcSC`
 @*/
 PetscErrorCode SlepcSCCompare(SlepcSC sc,PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *res)
 {
@@ -62,47 +62,19 @@ PetscErrorCode SlepcSCCompare(SlepcSC sc,PetscScalar ar,PetscScalar ai,PetscScal
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-/*@
-   SlepcSortEigenvalues - Sorts a list of eigenvalues according to the
-   sorting criterion specified in a SlepcSC context.
-
-   Not Collective
-
-   Input Parameters:
-+  sc   - the sorting criterion context
-.  n    - number of eigenvalues in the list
-.  eigr - pointer to the array containing the eigenvalues
--  eigi - imaginary part of the eigenvalues (only when using real numbers)
-
-   Output Parameter:
-.  perm - permutation array. Must be initialized to 0:n-1 on input.
-
-   Note:
-   The result is a list of indices in the original eigenvalue array
-   corresponding to the first n eigenvalues sorted in the specified
-   criterion.
-
-   Level: developer
-
-.seealso: SlepcSCCompare(), SlepcSC
-@*/
-PetscErrorCode SlepcSortEigenvalues(SlepcSC sc,PetscInt n,PetscScalar *eigr,PetscScalar *eigi,PetscInt *perm)
+static PetscErrorCode SlepcSortEigenvalues_Private(SlepcSC sc,PetscInt n,PetscScalar *eigr,PetscScalar *eigi,PetscInt *perm,PetscBool flg)
 {
   PetscScalar    re,im;
   PetscInt       i,j,result,tmp;
 
   PetscFunctionBegin;
-  PetscAssertPointer(sc,1);
-  PetscAssertPointer(eigr,3);
-  PetscAssertPointer(eigi,4);
-  PetscAssertPointer(perm,5);
   /* insertion sort */
   for (i=n-1;i>=0;i--) {
     re = eigr[perm[i]];
     im = eigi[perm[i]];
     j = i+1;
 #if !defined(PETSC_USE_COMPLEX)
-    if (im!=0) {
+    if (im!=0 && (re!=0 || !flg)) {
       /* complex eigenvalue */
       i--;
       im = eigi[perm[i]];
@@ -113,8 +85,8 @@ PetscErrorCode SlepcSortEigenvalues(SlepcSC sc,PetscInt n,PetscScalar *eigr,Pets
       if (result<=0) break;
 #if !defined(PETSC_USE_COMPLEX)
       /* keep together every complex conjugated eigenpair */
-      if (!im) {
-        if (eigi[perm[j]] == 0.0) {
+      if (!im || (!re && flg)) {
+        if (eigi[perm[j]] == 0.0 || (flg && eigr[perm[j]] == 0.0)) {
 #endif
           tmp = perm[j-1]; perm[j-1] = perm[j]; perm[j] = tmp;
           j++;
@@ -124,7 +96,7 @@ PetscErrorCode SlepcSortEigenvalues(SlepcSC sc,PetscInt n,PetscScalar *eigr,Pets
           j+=2;
         }
       } else {
-        if (eigi[perm[j]] == 0.0) {
+        if (eigi[perm[j]] == 0.0 || (flg && eigr[perm[j]] == 0.0)) {
           tmp = perm[j-2]; perm[j-2] = perm[j]; perm[j] = perm[j-1]; perm[j-1] = tmp;
           j++;
         } else {
@@ -138,18 +110,95 @@ PetscErrorCode SlepcSortEigenvalues(SlepcSC sc,PetscInt n,PetscScalar *eigr,Pets
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+/*@
+   SlepcSortEigenvalues - Sorts a list of eigenvalues according to the
+   sorting criterion specified in a `SlepcSC` context.
+
+   Not Collective
+
+   Input Parameters:
++  sc   - the sorting criterion context
+.  n    - number of eigenvalues in the list
+.  eigr - pointer to the array containing the eigenvalues
+-  eigi - imaginary part of the eigenvalues (only when using real scalars)
+
+   Output Parameter:
+.  perm - permutation array, must be initialized to `0:n-1` on input
+
+   Notes:
+   The result is a list of indices in the original eigenvalue array
+   corresponding to the first `n` eigenvalues sorted in the specified
+   criterion.
+
+   In real scalars, this functions assumes that complex values come in
+   conjugate pairs that are consecutive (including purely imaginary ones).
+
+   Level: developer
+
+.seealso: `SlepcSCCompare()`, `SlepcSC`
+@*/
+PetscErrorCode SlepcSortEigenvalues(SlepcSC sc,PetscInt n,PetscScalar eigr[],PetscScalar eigi[],PetscInt perm[])
+{
+  PetscFunctionBegin;
+  PetscAssertPointer(sc,1);
+  PetscAssertPointer(eigr,3);
+  PetscAssertPointer(eigi,4);
+  PetscAssertPointer(perm,5);
+  PetscCall(SlepcSortEigenvalues_Private(sc,n,eigr,eigi,perm,PETSC_FALSE));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*@
+   SlepcSortEigenvaluesSpecial - Sorts a list of eigenvalues according to the
+   sorting criterion specified in a `SlepcSC` context, with a special assumption
+   on the input values.
+
+   Not Collective
+
+   Input Parameters:
++  sc   - the sorting criterion context
+.  n    - number of eigenvalues in the list
+.  eigr - pointer to the array containing the eigenvalues
+-  eigi - imaginary part of the eigenvalues (only when using real scalars)
+
+   Output Parameter:
+.  perm - permutation array, must be initialized to `0:n-1` on input
+
+   Notes:
+   The result is a list of indices in the original eigenvalue array
+   corresponding to the first `n` eigenvalues sorted in the specified
+   criterion.
+
+   In real scalars, this functions assumes that complex values come in
+   conjugate pairs that are consecutive, but not purely imaginary ones in which
+   case only the one with positive imaginary part appears.
+
+   Level: developer
+
+.seealso: `SlepcSCCompare()`, `SlepcSC`
+@*/
+PetscErrorCode SlepcSortEigenvaluesSpecial(SlepcSC sc,PetscInt n,PetscScalar eigr[],PetscScalar eigi[],PetscInt perm[])
+{
+  PetscFunctionBegin;
+  PetscAssertPointer(sc,1);
+  PetscAssertPointer(eigr,3);
+  PetscAssertPointer(eigi,4);
+  PetscAssertPointer(perm,5);
+  PetscCall(SlepcSortEigenvalues_Private(sc,n,eigr,eigi,perm,PETSC_TRUE));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
 
 /*
    SlepcMap_ST - Gateway function to call STBackTransform from outside ST.
 */
-PetscErrorCode SlepcMap_ST(PetscObject obj,PetscInt n,PetscScalar* eigr,PetscScalar* eigi)
+PetscErrorCode SlepcMap_ST(PetscObject obj,PetscInt n,PetscScalar *eigr,PetscScalar *eigi)
 {
   PetscFunctionBegin;
   PetscCall(STBackTransform((ST)obj,n,eigr,eigi));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareLargestMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareLargestMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -162,7 +211,7 @@ PetscErrorCode SlepcCompareLargestMagnitude(PetscScalar ar,PetscScalar ai,PetscS
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareSmallestMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareSmallestMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -175,7 +224,7 @@ PetscErrorCode SlepcCompareSmallestMagnitude(PetscScalar ar,PetscScalar ai,Petsc
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareLargestReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareLargestReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -188,7 +237,7 @@ PetscErrorCode SlepcCompareLargestReal(PetscScalar ar,PetscScalar ai,PetscScalar
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareSmallestReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareSmallestReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -201,7 +250,7 @@ PetscErrorCode SlepcCompareSmallestReal(PetscScalar ar,PetscScalar ai,PetscScala
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareLargestImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareLargestImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -215,11 +264,17 @@ PetscErrorCode SlepcCompareLargestImaginary(PetscScalar ar,PetscScalar ai,PetscS
 #endif
   if (a<b) *result = 1;
   else if (a>b) *result = -1;
-  else *result = 0;
+  else { /* break the tie by checking the magnitude */
+    a = SlepcAbsEigenvalue(ar,ai);
+    b = SlepcAbsEigenvalue(br,bi);
+    if (a<b) *result = 1;
+    else if (a>b) *result = -1;
+    else *result = 0;
+  }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareSmallestImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareSmallestImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
 
@@ -233,11 +288,17 @@ PetscErrorCode SlepcCompareSmallestImaginary(PetscScalar ar,PetscScalar ai,Petsc
 #endif
   if (a>b) *result = 1;
   else if (a<b) *result = -1;
-  else *result = 0;
+  else { /* break the tie by checking the magnitude */
+    a = SlepcAbsEigenvalue(ar,ai);
+    b = SlepcAbsEigenvalue(br,bi);
+    if (a<b) *result = 1;
+    else if (a>b) *result = -1;
+    else *result = 0;
+  }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareTargetMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareTargetMagnitude(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal   a,b;
   PetscScalar *target = (PetscScalar*)ctx;
@@ -252,7 +313,7 @@ PetscErrorCode SlepcCompareTargetMagnitude(PetscScalar ar,PetscScalar ai,PetscSc
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode SlepcCompareTargetReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareTargetReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal   a,b;
   PetscScalar *target = (PetscScalar*)ctx;
@@ -266,27 +327,31 @@ PetscErrorCode SlepcCompareTargetReal(PetscScalar ar,PetscScalar ai,PetscScalar 
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-#if defined(PETSC_USE_COMPLEX)
-PetscErrorCode SlepcCompareTargetImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareTargetImaginary(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
+#if defined(PETSC_USE_COMPLEX)
   PetscReal   a,b;
   PetscScalar *target = (PetscScalar*)ctx;
+#endif
 
   PetscFunctionBegin;
+#if defined(PETSC_USE_COMPLEX)
   a = PetscAbsReal(PetscImaginaryPart(ar-(*target)));
   b = PetscAbsReal(PetscImaginaryPart(br-(*target)));
   if (a>b) *result = 1;
   else if (a<b) *result = -1;
   else *result = 0;
+#else
+  *result = 0;
+#endif
   PetscFunctionReturn(PETSC_SUCCESS);
 }
-#endif
 
 /*
    Used in the SVD for computing smallest singular values
    from the cyclic matrix.
 */
-PetscErrorCode SlepcCompareSmallestPosReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,void *ctx)
+PetscErrorCode SlepcCompareSmallestPosReal(PetscScalar ar,PetscScalar ai,PetscScalar br,PetscScalar bi,PetscInt *result,PetscCtx ctx)
 {
   PetscReal a,b;
   PetscBool aisright,bisright;

@@ -117,18 +117,18 @@ static PetscErrorCode SVDCyclicGetCyclicMat(SVD svd,Mat A,Mat AT,Mat *C)
     PetscCall(MatCreateVecsEmpty(A,&ctx->x2,&ctx->x1));
     PetscCall(MatCreateVecsEmpty(A,&ctx->y2,&ctx->y1));
     PetscCall(MatCreateShell(PetscObjectComm((PetscObject)svd),m+n,m+n,M+N,M+N,ctx,C));
-    PetscCall(MatShellSetOperation(*C,MATOP_GET_DIAGONAL,(void(*)(void))MatGetDiagonal_Cyclic));
-    PetscCall(MatShellSetOperation(*C,MATOP_DESTROY,(void(*)(void))MatDestroy_Cyclic));
+    PetscCall(MatShellSetOperation(*C,MATOP_GET_DIAGONAL,(PetscErrorCodeFn*)MatGetDiagonal_Cyclic));
+    PetscCall(MatShellSetOperation(*C,MATOP_DESTROY,(PetscErrorCodeFn*)MatDestroy_Cyclic));
 #if defined(PETSC_HAVE_CUDA)
     PetscCall(PetscObjectTypeCompareAny((PetscObject)(svd->swapped?AT:A),&gpu,MATSEQAIJCUSPARSE,MATMPIAIJCUSPARSE,""));
-    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_Cyclic_CUDA));
+    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Cyclic_CUDA));
     else
 #elif defined(PETSC_HAVE_HIP)
     PetscCall(PetscObjectTypeCompareAny((PetscObject)(svd->swapped?AT:A),&gpu,MATSEQAIJHIPSPARSE,MATMPIAIJHIPSPARSE,""));
-    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_Cyclic_HIP));
+    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Cyclic_HIP));
     else
 #endif
-      PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_Cyclic));
+      PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Cyclic));
     PetscCall(MatGetVecType(A,&vtype));
     PetscCall(MatSetVecType(*C,vtype));
 #if defined(PETSC_HAVE_CUDA) || defined(PETSC_HAVE_HIP)
@@ -320,18 +320,18 @@ static PetscErrorCode SVDCyclicGetECrossMat(SVD svd,Mat A,Mat AT,Mat *C,Vec t)
     PetscCall(MatCreateVecsEmpty(A,&ctx->y2,NULL));
     PetscCall(MatCreateVecs(A,NULL,&ctx->w));
     PetscCall(MatCreateShell(PetscObjectComm((PetscObject)svd),m+n,m+n,M+N,M+N,ctx,C));
-    PetscCall(MatShellSetOperation(*C,MATOP_GET_DIAGONAL,(void(*)(void))MatGetDiagonal_ECross));
-    PetscCall(MatShellSetOperation(*C,MATOP_DESTROY,(void(*)(void))MatDestroy_ECross));
+    PetscCall(MatShellSetOperation(*C,MATOP_GET_DIAGONAL,(PetscErrorCodeFn*)MatGetDiagonal_ECross));
+    PetscCall(MatShellSetOperation(*C,MATOP_DESTROY,(PetscErrorCodeFn*)MatDestroy_ECross));
 #if defined(PETSC_HAVE_CUDA)
     PetscCall(PetscObjectTypeCompareAny((PetscObject)(svd->swapped?AT:A),&gpu,MATSEQAIJCUSPARSE,MATMPIAIJCUSPARSE,""));
-    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_ECross_CUDA));
+    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_ECross_CUDA));
     else
 #elif defined(PETSC_HAVE_HIP)
     PetscCall(PetscObjectTypeCompareAny((PetscObject)(svd->swapped?AT:A),&gpu,MATSEQAIJHIPSPARSE,MATMPIAIJHIPSPARSE,""));
-    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_ECross_HIP));
+    if (gpu) PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_ECross_HIP));
     else
 #endif
-      PetscCall(MatShellSetOperation(*C,MATOP_MULT,(void(*)(void))MatMult_ECross));
+      PetscCall(MatShellSetOperation(*C,MATOP_MULT,(PetscErrorCodeFn*)MatMult_ECross));
     PetscCall(MatGetVecType(A,&vtype));
     PetscCall(MatSetVecType(*C,vtype));
 #if defined(PETSC_HAVE_CUDA) || defined(PETSC_HAVE_HIP)
@@ -546,6 +546,7 @@ static PetscErrorCode SVDSolve_Cyclic(SVD svd)
   PetscFunctionBegin;
   PetscCall(EPSSolve(cyclic->eps));
   PetscCall(EPSGetConverged(cyclic->eps,&nconv));
+  nconv = PetscMin(nconv,svd->ncv);
   PetscCall(EPSGetIterationNumber(cyclic->eps,&svd->its));
   PetscCall(EPSGetConvergedReason(cyclic->eps,(EPSConvergedReason*)&svd->reason));
   for (i=0,j=0;i<nconv;i++) {
@@ -575,6 +576,7 @@ static PetscErrorCode SVDComputeVectors_Cyclic_Standard(SVD svd)
   PetscCall(MatGetLocalSize(svd->A,&m,NULL));
   PetscCall(MatCreateVecsEmpty(svd->A,&x2,&x1));
   PetscCall(EPSGetConverged(cyclic->eps,&nconv));
+  nconv = PetscMin(nconv,svd->ncv);
   for (i=0,j=0;i<nconv;i++) {
     PetscCall(EPSGetEigenpair(cyclic->eps,i,&er,&ei,x,NULL));
     PetscCall(SVDCyclicCheckEigenvalue(svd,er,ei,&sigma,NULL));
@@ -615,6 +617,7 @@ static PetscErrorCode SVDComputeVectors_Cyclic_Generalized(SVD svd)
   PetscCall(MatCreateVecs(svd->A,NULL,&u));
   PetscCall(MatCreateVecs(svd->B,NULL,&v));
   PetscCall(EPSGetConverged(cyclic->eps,&nconv));
+  nconv = PetscMin(nconv,svd->ncv);
   for (i=0,j=0;i<nconv;i++) {
     PetscCall(EPSGetEigenpair(cyclic->eps,i,&er,&ei,x,NULL));
     PetscCall(SVDCyclicCheckEigenvalue(svd,er,ei,&sigma,NULL));
@@ -729,6 +732,7 @@ static PetscErrorCode SVDComputeVectors_Cyclic_Hyperbolic(SVD svd)
   PetscCall(BVGetSizes(U,&n,NULL,NULL));
   PetscCall(BV_SetMatrixDiagonal(U,svd->omega,svd->A));
   PetscCall(EPSGetConverged(cyclic->eps,&nconv));
+  nconv = PetscMin(nconv,svd->ncv);
   for (i=0,j=0;i<nconv;i++) {
     PetscCall(EPSGetEigenpair(cyclic->eps,i,&er,&ei,x,xi));
     PetscCall(SVDCyclicCheckEigenvalue(svd,er,ei,&sigma,&isreal));
@@ -850,7 +854,7 @@ static PetscErrorCode EPSMonitor_Cyclic(EPS eps,PetscInt its,PetscInt nconv,Pets
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode SVDSetFromOptions_Cyclic(SVD svd,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode SVDSetFromOptions_Cyclic(SVD svd,PetscOptionItems PetscOptionsObject)
 {
   PetscBool      set,val;
   SVD_CYCLIC     *cyclic = (SVD_CYCLIC*)svd->data;
@@ -888,20 +892,27 @@ static PetscErrorCode SVDCyclicSetExplicitMatrix_Cyclic(SVD svd,PetscBool explic
 
 /*@
    SVDCyclicSetExplicitMatrix - Indicate if the eigensolver operator
-   H(A) = [ 0  A ; A^T 0 ] must be computed explicitly.
+   $H(A)=\begin{bmatrix}0&A\\A^*&0\end{bmatrix}$ must be computed explicitly.
 
    Logically Collective
 
    Input Parameters:
-+  svd         - singular value solver
--  explicitmat - boolean flag indicating if H(A) is built explicitly
++  svd         - the singular value solver context
+-  explicitmat - `PETSC_TRUE` if $H(A)$ must be built explicitly
 
    Options Database Key:
-.  -svd_cyclic_explicitmatrix <boolean> - Indicates the boolean flag
+.  -svd_cyclic_explicitmatrix (true|false) - toggle the explicit construction of the matrix
+
+   Notes:
+   In GSVD and HSVD the equivalent eigenvalue problem has generalized form,
+   and hence two matrices are built. See [](#sec:svdback) for details.
+
+   By default the matrices are not built explicitly, but handled as shell matrices,
+   see `MATSHELL`.
 
    Level: advanced
 
-.seealso: SVDCyclicGetExplicitMatrix()
+.seealso: [](ch:svd), [](#sec:svdback), `SVDCYCLIC`, `SVDCyclicGetExplicitMatrix()`, `MATSHELL`
 @*/
 PetscErrorCode SVDCyclicSetExplicitMatrix(SVD svd,PetscBool explicitmat)
 {
@@ -922,19 +933,20 @@ static PetscErrorCode SVDCyclicGetExplicitMatrix_Cyclic(SVD svd,PetscBool *expli
 }
 
 /*@
-   SVDCyclicGetExplicitMatrix - Returns the flag indicating if H(A) is built explicitly.
+   SVDCyclicGetExplicitMatrix - Returns the flag indicating if the cyclic
+   matrix $H(A)$ is built explicitly.
 
    Not Collective
 
    Input Parameter:
-.  svd  - singular value solver
+.  svd  - the singular value solver context
 
    Output Parameter:
 .  explicitmat - the mode flag
 
    Level: advanced
 
-.seealso: SVDCyclicSetExplicitMatrix()
+.seealso: [](ch:svd), `SVDCYCLIC`, `SVDCyclicSetExplicitMatrix()`
 @*/
 PetscErrorCode SVDCyclicGetExplicitMatrix(SVD svd,PetscBool *explicitmat)
 {
@@ -959,18 +971,18 @@ static PetscErrorCode SVDCyclicSetEPS_Cyclic(SVD svd,EPS eps)
 }
 
 /*@
-   SVDCyclicSetEPS - Associate an eigensolver object (EPS) to the
+   SVDCyclicSetEPS - Associate an eigensolver object (`EPS`) to the
    singular value solver.
 
    Collective
 
    Input Parameters:
-+  svd - singular value solver
--  eps - the eigensolver object
++  svd - the singular value solver context
+-  eps - the linear eigensolver context
 
    Level: advanced
 
-.seealso: SVDCyclicGetEPS()
+.seealso: [](ch:svd), `SVDCYCLIC`, `SVDCyclicGetEPS()`
 @*/
 PetscErrorCode SVDCyclicSetEPS(SVD svd,EPS eps)
 {
@@ -1001,20 +1013,20 @@ static PetscErrorCode SVDCyclicGetEPS_Cyclic(SVD svd,EPS *eps)
 }
 
 /*@
-   SVDCyclicGetEPS - Retrieve the eigensolver object (EPS) associated
+   SVDCyclicGetEPS - Retrieve the eigensolver object (`EPS`) associated
    to the singular value solver.
 
    Collective
 
    Input Parameter:
-.  svd - singular value solver
+.  svd - the singular value solver context
 
    Output Parameter:
-.  eps - the eigensolver object
+.  eps - the linear eigensolver context
 
    Level: advanced
 
-.seealso: SVDCyclicSetEPS()
+.seealso: [](ch:svd), `SVDCYCLIC`, `SVDCyclicSetEPS()`
 @*/
 PetscErrorCode SVDCyclicGetEPS(SVD svd,EPS *eps)
 {
@@ -1067,6 +1079,25 @@ static PetscErrorCode SVDDestroy_Cyclic(SVD svd)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   SVDCYCLIC - SVDCYCLIC = "cyclic" - Solve the singular value problem
+   via an equivalent eigenvalue problem with the cyclic matrix.
+
+   Notes:
+   This will do the computation with a subsidiary eigensolver on an
+   equivalent eigenvalue problem. For the standard SVD, the eigensolver
+   operates with the cyclic matrix
+   $H(A)=\left[\begin{smallmatrix}0&A\\A^*&0\end{smallmatrix}\right]$.
+   See the section [](#sec:svdback) for details on the formulation for
+   each SVD type.
+
+   To manipulate the internal eigensolvers, use `SVDCyclicGetEPS()` or
+   use the corresponding command-line options.
+
+   Level: beginner
+
+.seealso: [](ch:svd), [](#sec:svdback), `SVD`, `SVDType`, `SVDSetType()`, `SVDSetProblemType()`, `SVDTRLANCZOS`, `SVDCyclicGetEPS()`
+M*/
 SLEPC_EXTERN PetscErrorCode SVDCreate_Cyclic(SVD svd)
 {
   SVD_CYCLIC     *cyclic;

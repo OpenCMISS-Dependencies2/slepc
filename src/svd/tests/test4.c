@@ -158,7 +158,7 @@ int main(int argc,char **argv)
       test:
          suffix: 1_scalapack
          args: -svd_type scalapack
-         requires: scalapack
+         requires: scalapack !__float128
 
    testset:
       args: -svd_monitor_cancel -mat_type aijcusparse
@@ -179,6 +179,7 @@ int main(int argc,char **argv)
       suffix: 3
       nsize: 2
       args: -svd_type trlanczos -svd_ncv 14 -svd_monitor_cancel -ds_parallel synchronized
+      filter: sed -e "s/99255/99254/"
 
    testset:
       args: -svd_monitor_cancel -mat_type aijhipsparse

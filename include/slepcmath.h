@@ -14,7 +14,7 @@
 
 #pragma once
 
-/* SUBMANSEC = sys */
+/* SUBMANSEC = Sys */
 
 /*
     Default tolerance for the different solvers, depending on the precision
@@ -35,18 +35,19 @@ static inline PetscReal SlepcDefaultTol(PetscReal tol)
 }
 
 /*@C
-   SlepcAbs - Returns sqrt(x**2+y**2), taking care not to cause unnecessary
-   overflow. It is based on LAPACK's DLAPY2.
+   SlepcAbs - Returns $\sqrt{x^2+y^2}$, taking care not to cause unnecessary
+   overflow. It is based on LAPACK's `DLAPY2`.
 
    Not Collective
 
    Input parameters:
-.  x,y - the real numbers
++  x - the first real number
+-  y - the second real number
 
    Output parameter:
 .  return - the result
 
-   Note:
+   Fortran Note:
    This function is not available from Fortran.
 
    Level: developer
@@ -72,18 +73,21 @@ static inline PetscReal SlepcAbs(PetscReal x,PetscReal y)
    Not Collective
 
    Input parameters:
-+  x  - the real part of the complex number
--  y  - the imaginary part of the complex number
++  x - the real part of the complex number
+-  y - the imaginary part of the complex number
 
    Notes:
-   This function computes sqrt(x**2+y**2), taking care not to cause unnecessary
-   overflow. It is based on LAPACK's DLAPY2.
+   This function computes $\sqrt{x^2+y^2}$, taking care not to cause unnecessary
+   overflow. It is based on LAPACK's `DLAPY2`.
 
-   In complex scalars, only the first argument is used.
+   In complex scalars, only the first argument is used, i.e., the result is $|x|$.
 
+   Fortran Note:
    This function is not available from Fortran.
 
    Level: developer
+
+.seealso: `PetscAbsScalar()`
 M*/
 #if !defined(PETSC_USE_COMPLEX)
 #define SlepcAbsEigenvalue(x,y) SlepcAbs(x,y)

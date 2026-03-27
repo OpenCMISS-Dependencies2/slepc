@@ -290,7 +290,7 @@ static PetscScalar powerm2by2(PetscScalar A11,PetscScalar A22,PetscScalar A12,Pe
 #if defined(PETSC_USE_COMPLEX)
     w += PETSC_i*PETSC_PI*unwinding(loga2-loga1);
 #endif
-    dd = 2.0*PetscExpScalar(p*(loga1+loga2)/2.0)*PetscSinhScalar(p*w)/(a2-a1);
+    dd = 2.0*PetscExpScalar((loga1+loga2)*p/2.0)*PetscSinhScalar(p*w)/(a2-a1);
     x12 = A12*dd;
   }
   PetscFunctionReturn(x12);
@@ -673,6 +673,14 @@ static PetscErrorCode FNView_Log(FN fn,PetscViewer viewer)
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   FNLOG - FNLOG = "log" - The logarithm function $f(x)=\log x$.
+
+   Level: beginner
+
+.seealso: [](sec:fn), `FN`, `FNType`, `FNSetType()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode FNCreate_Log(FN fn)
 {

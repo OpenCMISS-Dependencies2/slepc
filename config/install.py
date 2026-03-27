@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import print_function
 import re, os, sys, shutil
 import subprocess
 
@@ -270,7 +269,6 @@ class Installer:
       raise shutil.Error(errors)
     return copies
 
-
   def fixConfFile(self, src):
     lines   = []
     oldFile = open(src, 'r')
@@ -296,7 +294,7 @@ class Installer:
 
   def fixConf(self):
     import shutil
-    for file in ['slepc_rules', 'slepc_rules_doc.mk', 'slepc_rules_util.mk', 'slepc_variables', 'slepcrules', 'slepcvariables']:
+    for file in ['slepc_rules', 'slepc_rules_util.mk', 'slepc_variables', 'slepcrules', 'slepcvariables']:
       self.fixConfFile(os.path.join(self.destConfDir,file))
     self.fixConfFile(os.path.join(self.destLibDir,'pkgconfig','slepc.pc'))
     self.fixConfFile(os.path.join(self.destIncludeDir,'slepcconf.h'))
@@ -328,7 +326,6 @@ class Installer:
     for filename in (
       self.destIncludeDir + '/slepcconf.h',
       self.destShareDir + '/slepc/examples/gmakefile.test',
-      self.destConfDir + '/slepc_rules_doc.mk',
       self.destConfDir + '/slepc_rules_util.mk',
       self.destConfDir + '/slepc_rules',
       self.destConfDir + '/slepcrules',
@@ -479,8 +476,8 @@ for dir in dirs:
     return
 
   def installConf(self):
-    self.copies.extend(self.copytree(self.rootConfDir, self.destConfDir, exclude = ['install.py','bfort-base.txt','bfort-mpi.txt','bfort-petsc.txt','bfort-slepc.txt']))
-    self.copies.extend(self.copytree(self.archConfDir, self.destConfDir, exclude = ['configure.log','error.log','files','gmake.log','make.log','test.log','memoryerror.log']))
+    self.copies.extend(self.copytree(self.rootConfDir, self.destConfDir))
+    self.copies.extend(self.copytree(self.archConfDir, self.destConfDir, exclude = ['configure-hash','configure.log','error.log','files','gmake.log','make.log','check.log','memoryerror.log']))
     return
 
   def installBin(self):
@@ -491,7 +488,9 @@ for dir in dirs:
     return
 
   def installShare(self):
-    self.copies.extend(self.copytree(self.rootShareDir, self.destShareDir))
+    if self.copyexamples: exclude = []
+    else: exclude = ['datafiles']
+    self.copies.extend(self.copytree(self.rootShareDir, self.destShareDir, exclude=exclude))
     if self.copyexamples:
       examplesdir=os.path.join(self.destShareDir,'slepc','examples')
       if os.path.exists(examplesdir):
@@ -534,14 +533,12 @@ for dir in dirs:
     self.copies.extend(self.copytree(os.path.join(self.archLibDir,'pkgconfig'), os.path.join(self.destLibDir,'pkgconfig'), copyFunc = self.copyLib, exclude = ['.DIR'],recurse = 0))
     return
 
-
   def outputInstallDone(self):
     arch=self.arch
     if arch.startswith('installed-'): arch='""'
     print('''\
 ====================================
-Install complete.
-Now to check if the libraries are working do (in current directory):
+To check if the libraries are working do (in current directory):
 make SLEPC_DIR=%s PETSC_DIR=%s PETSC_ARCH=%s check
 ====================================\
 ''' % (self.installDir,self.petscDir,arch))
@@ -584,11 +581,8 @@ Before use - please copy/install over to specified prefix: %s
 
   def runfix(self):
     self.fixConf()
-    using_build_backend = any(
-      os.environ.get(prefix + '_BUILD_BACKEND')
-      for prefix in ('_PYPROJECT_HOOKS', 'PEP517')
-    )
-    if using_build_backend:
+    self.building_wheel = bool(os.environ.get('SLEPC_BUILDING_WHEEL'))
+    if self.building_wheel:
       self.fixPythonWheel()
     return
 

@@ -29,7 +29,7 @@ static PetscErrorCode MatMult_Cayley(Mat B,Vec x,Vec y)
   ctx = (ST_CAYLEY*)st->data;
   nu = ctx->nu;
 
-  if (st->matmode == ST_MATMODE_INPLACE) { nu = nu + st->sigma; }
+  if (st->matmode == ST_MATMODE_INPLACE) nu = nu + st->sigma;
 
   if (st->nmat>1) {
     /* generalized eigenproblem: y = (A + tB)x */
@@ -55,7 +55,7 @@ static PetscErrorCode MatMultTranspose_Cayley(Mat B,Vec x,Vec y)
   ctx = (ST_CAYLEY*)st->data;
   nu = ctx->nu;
 
-  if (st->matmode == ST_MATMODE_INPLACE) { nu = nu + st->sigma; }
+  if (st->matmode == ST_MATMODE_INPLACE) nu = nu + st->sigma;
   nu = PetscConj(nu);
 
   if (st->nmat>1) {
@@ -146,8 +146,8 @@ static PetscErrorCode STComputeOperator_Cayley(ST st)
   if (st->matmode==ST_MATMODE_INPLACE) {
     PetscCall(MatGetLocalSize(st->A[0],&n,&m));
     PetscCall(MatCreateShell(PetscObjectComm((PetscObject)st),n,m,PETSC_DETERMINE,PETSC_DETERMINE,st,&st->T[0]));
-    PetscCall(MatShellSetOperation(st->T[0],MATOP_MULT,(void(*)(void))MatMult_Cayley));
-    PetscCall(MatShellSetOperation(st->T[0],MATOP_MULT_TRANSPOSE,(void(*)(void))MatMultTranspose_Cayley));
+    PetscCall(MatShellSetOperation(st->T[0],MATOP_MULT,(PetscErrorCodeFn*)MatMult_Cayley));
+    PetscCall(MatShellSetOperation(st->T[0],MATOP_MULT_TRANSPOSE,(PetscErrorCodeFn*)MatMultTranspose_Cayley));
   } else PetscCall(STMatMAXPY_Private(st,ctx->nu,0.0,0,NULL,PetscNot(st->state==ST_STATE_UPDATED),PETSC_FALSE,&st->T[0]));
   st->M = st->T[0];
 
@@ -197,7 +197,7 @@ static PetscErrorCode STSetShift_Cayley(ST st,PetscScalar newshift)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode STSetFromOptions_Cayley(ST st,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode STSetFromOptions_Cayley(ST st,PetscOptionItems PetscOptionsObject)
 {
   PetscScalar    nu;
   PetscBool      flg;
@@ -238,16 +238,16 @@ static PetscErrorCode STCayleySetAntishift_Cayley(ST st,PetscScalar newshift)
 -  nu  - the anti-shift
 
    Options Database Key:
-.  -st_cayley_antishift - Sets the value of the anti-shift
+.  -st_cayley_antishift nu - sets the value of the anti-shift
 
    Level: intermediate
 
    Note:
    In the generalized Cayley transform, the operator can be expressed as
-   OP = inv(A - sigma B)*(A + nu B). This function sets the value of nu.
-   Use STSetShift() for setting sigma. The value nu=-sigma is not allowed.
+   $(A - \sigma B)^{-1}(A + \nu B)$. This function sets the value of $\nu$.
+   Use `STSetShift()` for setting $\sigma$. The value $\nu=-\sigma$ is not allowed.
 
-.seealso: STSetShift(), STCayleyGetAntishift()
+.seealso: [](ch:st), `STCAYLEY`, `STSetShift()`, `STCayleyGetAntishift()`
 @*/
 PetscErrorCode STCayleySetAntishift(ST st,PetscScalar nu)
 {
@@ -281,7 +281,7 @@ static PetscErrorCode STCayleyGetAntishift_Cayley(ST st,PetscScalar *nu)
 
    Level: intermediate
 
-.seealso: STGetShift(), STCayleySetAntishift()
+.seealso: [](ch:st), `STCAYLEY`, `STGetShift()`, `STCayleySetAntishift()`
 @*/
 PetscErrorCode STCayleyGetAntishift(ST st,PetscScalar *nu)
 {
@@ -315,6 +315,21 @@ static PetscErrorCode STDestroy_Cayley(ST st)
   PetscCall(PetscObjectComposeFunction((PetscObject)st,"STCayleyGetAntishift_C",NULL));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
+
+/*MC
+   STCAYLEY - STCAYLEY = "cayley" - The generalized Cayley transform.
+
+   Level: beginner
+
+   Notes:
+   The operator in this `ST` is $(A-\sigma B)^{-1}(A+\nu B)$, where $A$ and $B$
+   are the matrices set with `STSetMatrices()`, the shift $\sigma$ is given in
+   `STSetShift()`, and $\nu$ is given in `STCayleySetAntishift()`.
+
+   This transformation is mathematically equivalent to `STSINVERT`.
+
+.seealso: [](ch:st), `ST`, `STType`, `STSetType()`, `STSetMatrices()`, `STSetShift()`, `STCayleySetAntishift()`
+M*/
 
 SLEPC_EXTERN PetscErrorCode STCreate_Cayley(ST st)
 {

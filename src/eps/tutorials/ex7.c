@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Solves a generalized eigensystem Ax=kBx with matrices loaded from a file.\n"
+static char help[] = "Solves a generalized eigensystem Ax=kBx with matrices loaded from a file.\n\n"
   "The command line options are:\n"
   "  -f1 <filename> -f2 <filename>, PETSc binary files containing A and B.\n"
   "  -evecs <filename>, output file to save computed eigenvectors.\n"
@@ -210,5 +210,16 @@ int main(int argc,char **argv)
       suffix: 3 # test problem (A,A)
       args: -f1 ${SLEPC_DIR}/share/slepc/datafiles/matrices/bfw62a.petsc -f2 ${SLEPC_DIR}/share/slepc/datafiles/matrices/bfw62a.petsc -eps_nev 4 -terse
       requires: double !complex !defined(PETSC_USE_64BIT_INDICES)
+
+   testset:
+      args: -f1 ${SLEPC_DIR}/share/slepc/datafiles/matrices/rdb200.petsc -eps_nev 2 -terse
+      requires: double !complex !defined(PETSC_USE_64BIT_INDICES)
+      localrunfiles: rdb200vecs.bin
+      test:
+         suffix: 4
+         args: -eps_type subspace -ninitial 2 -finitial rdb200vecs.bin
+      test:
+         suffix: 5
+         args: -nconstr 2 -fconstr rdb200vecs.bin
 
 TEST*/

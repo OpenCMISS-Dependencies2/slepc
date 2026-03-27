@@ -16,9 +16,9 @@ Continuous integration
 ----------------------
 
 - The SLEPc project uses its own gitlab-runners.
-- As opposed to PETSc, merge requests do not generate a pipeline automatically. Pipelines must be run manually, with the `Run pipeline` button in the Pipelines menu item under CI/CD, except when running from a fork, in which case developers are advised to reach out to a maintainer.
-- When running a pipeline, select the branch that you want to test. Note that this scheme may require rebasing the branch if the parent branch contains relevant changes (no merge is done automatically as in PETSc).
-- In the `Run pipeline` screen, it is possible to select a PETSc branch by using `PETSC_BRANCH` as the variable key and the branch name as the variable value.
+- Pipelines are generated automatically when pushing to a merge request, as in PETSc. In that case, a merge against the target branch is done (merged results pipeline).
+- An alternative is to manually run a 'detached' pipeline (without merge) with the `New pipeline` button in the `Pipelines` item under the `Build` menu.
+- It is possible to select a PETSc branch to be used in the pipeline, by using `CI_PETSC_BRANCH` as the variable key and the branch name as the variable value. In the case of a manual pipeline, this is done in the `New pipeline` screen. In the case of automatic pipelines, one has to enter the `pause-for-approval` job before pushing the play button, and insert the variable there.
 - The test harness is run with `DIFF_NUMBERS` enabled by default, as opposed to PETSc. When adding a new test, all the output must match, including floating point numbers. Use filters to remove potentially problematic values such as small residual norms.
 - Using filters in tests is preferred to adding `alt` output files.
 
@@ -27,10 +27,3 @@ Code
 
 - In SLEPc, code style is not enforced via `clang-format`. Still, most coding conventions should be followed. They are the same as the ones from PETSc prior to the switch to `clang-format`, see the [PETSc Style and Usage Guide](https://petsc.org/release/developers/style/).
 
-Documentation
--------------
-
-- SLEPc does not yet use the Sphinx-based documentation system implemented by PETSc.
-- The SLEPc website is not included in the repository.
-- The SLEPc users manual in PDF is generated directly from LaTeX source.
-- The `alldoc` rule in the makefile uses the old rules, see file `slepc_rules_doc.mk`. In particular, Sowing is used to generate HTML man pages directly, not Markdown as in PETSc.

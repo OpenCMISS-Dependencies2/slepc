@@ -9,7 +9,6 @@
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 
-from __future__ import print_function
 import os, sys, time, shutil
 
 def WriteModulesFile(modules,version,sdir):
@@ -118,8 +117,23 @@ if not showhelp:
 else:
   packagesinpetsc = ''
 
+if not showhelp:
+  # Create directories for configuration files
+  archdir, archdirexisted = slepc.CreateDirTest(slepc.dir,petsc.archname)
+  libdir  = slepc.CreateDir(archdir,'lib')
+  confdir = slepc.CreateDirTwo(libdir,'slepc','conf')
+
+  # Open log file
+  log.Open(slepc.dir,confdir,'configure.log')
+  log.write('='*80)
+  log.write('Starting Configure Run at '+time.ctime(time.time()))
+  log.write('Configure Options: '+' '.join(sys.argv[1:]))
+  log.write('Working directory: '+os.getcwd())
+  log.write('Python version:\n'+sys.version)
+  log.write('make: '+petsc.make)
+
 # Load classes for packages and process their command-line options
-import arpack, blopex, chase, elemental, elpa, evsl, feast, hpddm, ksvd, polar, primme, scalapack, slepc4py, slicot, trlan, sowing, lapack
+import arpack, blopex, chase, elemental, elpa, evsl, feast, hpddm, ksvd, polar, primme, scalapack, slepc4py, slicot, lapack
 arpack    = arpack.Arpack(argdb,log)
 blopex    = blopex.Blopex(argdb,log)
 chase     = chase.Chase(argdb,log)
@@ -130,8 +144,6 @@ feast     = feast.Feast(argdb,log,packagesinpetsc)
 ksvd      = ksvd.Ksvd(argdb,log)
 polar     = polar.Polar(argdb,log)
 primme    = primme.Primme(argdb,log)
-trlan     = trlan.Trlan(argdb,log)
-sowing    = sowing.Sowing(argdb,log)
 lapack    = lapack.Lapack(argdb,log)
 scalapack = scalapack.Scalapack(argdb,log,packagesinpetsc)
 slepc4py  = slepc4py.Slepc4py(argdb,log)
@@ -140,12 +152,12 @@ hpddm     = hpddm.HPDDM(argdb,log)
 
 # The next list sorts the packages in a way that dependencies of X appear before X.
 # SLEPc's configure does not build a graph of package dependencies, every dependency is searched linearly
-externalwithdeps = [arpack, blopex, chase, elpa, evsl, hpddm, polar, ksvd, primme, slicot, trlan]
+externalwithdeps = [arpack, blopex, chase, elpa, evsl, hpddm, polar, ksvd, primme, slicot]
 # List of packages in alphabetical order
 externalpackages = sorted(externalwithdeps, key=lambda p: p.packagename.upper())
 
 petscpackages    = [lapack, elemental, feast, scalapack]
-specialpackages  = [slepc, petsc, slepc4py, sowing]
+specialpackages  = [slepc, petsc, slepc4py]
 checkpackages    = specialpackages + petscpackages + externalwithdeps
 
 # Print help if requested and check for wrong command-line options
@@ -173,25 +185,11 @@ argdb.ErrorIfNotEmpty()
 
 # Check if packages-download directory contains requested packages
 if slepc.downloaddir:
-  l = list(filter(None, [pkg.MissingTarball(slepc.downloaddir) for pkg in externalpackages + [sowing]]))
+  l = list(filter(None, [pkg.MissingTarball(slepc.downloaddir) for pkg in externalpackages]))
   if l:
     log.Println('\n\nDownload the following packages and run the script again:')
     for pkg in l: log.Println(pkg)
     log.Exit('Missing files in packages-download directory')
-
-# Create directories for configuration files
-archdir, archdirexisted = slepc.CreateDirTest(slepc.dir,petsc.archname)
-libdir  = slepc.CreateDir(archdir,'lib')
-confdir = slepc.CreateDirTwo(libdir,'slepc','conf')
-
-# Open log file
-log.Open(slepc.dir,confdir,'configure.log')
-log.write('='*80)
-log.write('Starting Configure Run at '+time.ctime(time.time()))
-log.write('Configure Options: '+' '.join(sys.argv[1:]))
-log.write('Working directory: '+os.getcwd())
-log.write('Python version:\n'+sys.version)
-log.write('make: '+petsc.make)
 
 # Some checks related to PETSc configuration
 if petsc.nversion < slepc.nversion:
@@ -253,6 +251,20 @@ else:
     Epilog(slepc,petsc)
     sys.exit(0)
 
+# Generate Fortran bindings
+if hasattr(petsc,'fc') and petsc.fortran:
+  log.Print('\nGenerating Fortran bindings...')
+  # first remove any current Fortran bindings from previous ./configure runs
+  ftndir = os.path.join(archdir,'ftn')
+  if os.path.isdir(ftndir): shutil.rmtree(ftndir)
+  # run generatefortranbindings.py
+  try:
+    sys.path.insert(0, os.path.join(petsc.dir,'lib','petsc','bin'))
+    import generatefortranbindings
+    generatefortranbindings.main(petsc.dir,slepc.dir,petsc.archname)
+  except RuntimeError as e:
+    log.Exit('Unable to generate Fortran bindings:\n'+str(e))
+
 # Write main configuration files
 if not slepc.prefixdir:
   slepc.prefixdir = archdir
@@ -264,12 +276,12 @@ with slepc.CreateFile(confdir,'slepcvariables') as slepcvars:
         pkg.Process(slepcconf,slepcvars,slepcrules,slepc,petsc,archdir)
       slepcconf.write('#define SLEPC_HAVE_PACKAGES ":')
       for pkg in petscpackages + externalpackages:
-        if hasattr(pkg,'havepackage') and pkg.havepackage: slepcconf.write(pkg.packagename+':')
+        if getattr(pkg,'havepackage',False): slepcconf.write(pkg.packagename+':')
       slepcconf.write('"\n#endif\n')
       libflags = []
       includeflags = []
       for pkg in externalwithdeps:
-        if hasattr(pkg,'havepackage') and pkg.havepackage:
+        if getattr(pkg,'havepackage',False):
           for entry in pkg.libflags.split():
             if entry not in libflags:
                libflags.append(entry)

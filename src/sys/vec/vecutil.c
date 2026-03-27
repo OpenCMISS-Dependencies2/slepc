@@ -17,15 +17,15 @@
 
    Input Parameters:
 +  xr - the real part of the vector (overwritten on output)
-.  xi - the imaginary part of the vector (not referenced if iscomplex is false)
+.  xi - the imaginary part of the vector (not referenced if `iscomplex` is false)
 -  iscomplex - a flag indicating if the vector is complex
 
    Output Parameter:
-.  norm - the vector norm before normalization (can be set to NULL)
+.  norm - the vector norm before normalization (can be set to `NULL`)
 
    Level: developer
 
-.seealso: BVNormalize()
+.seealso: `BVNormalize()`
 @*/
 PetscErrorCode VecNormalizeComplex(Vec xr,Vec xi,PetscBool iscomplex,PetscReal *norm)
 {
@@ -74,8 +74,8 @@ static PetscErrorCode VecCheckOrthogonality_Private(Vec V[],PetscInt nv,Vec W[],
   if (lev) *lev = 0.0;
   for (i=0;i<nw;i++) {
     if (B) {
-      if (W) PetscCall(MatMultTranspose(B,W[i],w));
-      else PetscCall(MatMultTranspose(B,V[i],w));
+      if (W) PetscCall(MatMult(B,W[i],w));
+      else PetscCall(MatMult(B,V[i],w));
     } else {
       if (W) w = W[i];
       else w = V[i];
@@ -114,26 +114,30 @@ static PetscErrorCode VecCheckOrthogonality_Private(Vec V[],PetscInt nv,Vec W[],
 .  nv - number of V vectors
 .  W  - an alternative set of vectors (optional)
 .  nw - number of W vectors
-.  B  - matrix defining the inner product (optional)
+.  B  - Hermitian matrix defining the inner product (optional)
 -  viewer - optional visualization context
 
    Output Parameter:
 .  lev - level of orthogonality (optional)
 
    Notes:
-   This function computes W'*V and prints the result. It is intended to check
-   the level of bi-orthogonality of the vectors in the two sets. If W is equal
-   to NULL then V is used, thus checking the orthogonality of the V vectors.
+   This function computes $W^*V$ and prints the result. It is intended to check
+   the level of bi-orthogonality of the vectors in the two sets. If $W$ is equal
+   to `NULL` then $V$ is used, thus checking the orthogonality of the $V$ vectors.
 
-   If matrix B is provided then the check uses the B-inner product, W'*B*V.
+   If matrix `B` is provided then the check uses the $B$-inner product, $W^*BV$,
+   where $B$ is assumed to be Hermitian.
 
-   If lev is not NULL, it will contain the maximum entry of matrix
-   W'*V - I (in absolute value) omitting the diagonal. Otherwise, the matrix W'*V
+   If `V`, `W` represent eigenvectors computed by SLEPc, this function will not work
+   correctly if one of the eigenvalues is complex when running with real scalars.
+
+   If `lev` is not `NULL`, it will contain the maximum entry of matrix
+   $W^*V - I$ (in absolute value) omitting the diagonal. Otherwise, the matrix $W^*V$
    is printed.
 
    Level: developer
 
-.seealso: VecCheckOrthonormality()
+.seealso: `VecCheckOrthonormality()`
 @*/
 PetscErrorCode VecCheckOrthogonality(Vec V[],PetscInt nv,Vec W[],PetscInt nw,Mat B,PetscViewer viewer,PetscReal *lev)
 {
@@ -163,19 +167,19 @@ PetscErrorCode VecCheckOrthogonality(Vec V[],PetscInt nv,Vec W[],PetscInt nw,Mat
 .  nv - number of V vectors
 .  W  - an alternative set of vectors (optional)
 .  nw - number of W vectors
-.  B  - matrix defining the inner product (optional)
+.  B  - Hermitian matrix defining the inner product (optional)
 -  viewer - optional visualization context
 
    Output Parameter:
 .  lev - level of orthogonality (optional)
 
    Notes:
-   This function is equivalent to VecCheckOrthonormality(), but in addition it checks
-   that the diagonal of W'*V (or W'*B*V) is equal to all ones.
+   This function is equivalent to `VecCheckOrthonormality()`, but in addition it checks
+   that the diagonal of $W^*V$ (or $W^*BV$) is equal to all ones.
 
    Level: developer
 
-.seealso: VecCheckOrthogonality()
+.seealso: `VecCheckOrthogonality()`
 @*/
 PetscErrorCode VecCheckOrthonormality(Vec V[],PetscInt nv,Vec W[],PetscInt nw,Mat B,PetscViewer viewer,PetscReal *lev)
 {
@@ -200,19 +204,19 @@ PetscErrorCode VecCheckOrthonormality(Vec V[],PetscInt nv,Vec W[],PetscInt nw,Ma
 
    Collective
 
-   Input Parameters:
+   Input Parameter:
 .  v - a vector to mimic
 
    Output Parameter:
 .  newv - location to put new vector
 
    Note:
-   This is similar to VecDuplicate(), but the new vector does not have an internal
-   array, so the intended usage is with VecPlaceArray().
+   This is similar to `VecDuplicate()`, but the new vector does not have an internal
+   array, so the intended usage is with `VecPlaceArray()`.
 
    Level: developer
 
-.seealso: MatCreateVecsEmpty()
+.seealso: `VecDuplicate()`, `MatCreateVecsEmpty()`
 @*/
 PetscErrorCode VecDuplicateEmpty(Vec v,Vec *newv)
 {
@@ -257,17 +261,17 @@ PetscErrorCode VecDuplicateEmpty(Vec v,Vec *newv)
 
    Input Parameters:
 +  v    - the vector to be filled with random values
-.  rctx - the random number context (can be NULL)
-.  w1   - first work vector (can be NULL)
--  w2   - second work vector (can be NULL)
+.  rctx - the random number context (can be `NULL`)
+.  w1   - first work vector (can be `NULL`)
+-  w2   - second work vector (can be `NULL`)
 
    Notes:
-   Fills the two work vectors with uniformly distributed random values (VecSetRandom)
-   and then applies the Box-Muller transform to get normally distributed values on v.
+   Fills the two work vectors with uniformly distributed random values (`VecSetRandom()`)
+   and then applies the Box-Muller transform to get normally distributed values on `v`.
 
    Level: developer
 
-.seealso: VecSetRandom()
+.seealso: `VecSetRandom()`
 @*/
 PetscErrorCode VecSetRandomNormal(Vec v,PetscRandom rctx,Vec w1,Vec w2)
 {
@@ -319,6 +323,6 @@ PetscErrorCode VecSetRandomNormal(Vec v,PetscRandom rctx,Vec w1,Vec w2)
 
   PetscCall(VecDestroy(&v1));
   PetscCall(VecDestroy(&v2));
-  if (!rctx) PetscCall(PetscRandomDestroy(&rand));
+  PetscCall(PetscRandomDestroy(&rand));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

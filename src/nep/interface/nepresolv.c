@@ -81,12 +81,12 @@ static PetscErrorCode MatDestroy_Resolvent(Mat M)
 }
 
 /*@
-   NEPApplyResolvent - Applies the resolvent T^{-1}(z) to a given vector.
+   NEPApplyResolvent - Applies the resolvent $T^{-1}(z)$ to a given vector.
 
    Collective
 
    Input Parameters:
-+  nep   - eigensolver context obtained from NEPCreate()
++  nep   - the nonlinear eigensolver context
 .  rg    - optional region
 .  omega - value where the resolvent must be evaluated
 -  v     - input vector
@@ -94,17 +94,17 @@ static PetscErrorCode MatDestroy_Resolvent(Mat M)
    Output Parameter:
 .  r     - result vector
 
-   Notes:
-   The resolvent T^{-1}(z) = sum_i (z-lambda_i)^{-1}*x_i*y_i' is evaluated at
-   z=omega and the matrix-vector multiplication r = T^{-1}(omega)*v is computed.
-   Vectors x_i and y_i are right and left eigenvectors, respectively, normalized
-   so that y_i'*T'(lambda_i)*x_i=1. The sum contains only eigenvectors that have
-   been previously computed with NEPSolve(), and if a region rg is given then only
+   Note:
+   The resolvent $T^{-1}(z) = \sum_i (z-\lambda_i)^{-1} x_i y_i^*$ is evaluated at
+   $z=\omega$ and the matrix-vector multiplication $r = T^{-1}(\omega) v$ is computed.
+   Vectors $x_i$ and $y_i$ are right and left eigenvectors, respectively, normalized
+   so that $y_i^*T'(\lambda_i)x_i=1$. The sum contains only eigenvectors that have
+   been previously computed with `NEPSolve()`, and if a region `rg` is given then only
    those corresponding to eigenvalues inside the region are considered.
 
    Level: intermediate
 
-.seealso: NEPGetLeftEigenvector(), NEPSolve()
+.seealso: [](ch:nep), `NEPGetLeftEigenvector()`, `NEPSolve()`
 @*/
 PetscErrorCode NEPApplyResolvent(NEP nep,RG rg,PetscScalar omega,Vec v,Vec r)
 {
@@ -123,8 +123,8 @@ PetscErrorCode NEPApplyResolvent(NEP nep,RG rg,PetscScalar omega,Vec v,Vec r)
     ctx->nep = nep;
     PetscCall(PetscCalloc4(nep->nconv,&ctx->nfactor,nep->nconv,&ctx->nfactor_avail,nep->nconv,&ctx->dots,nep->nconv,&ctx->dots_avail));
     PetscCall(MatCreateShell(PetscObjectComm((PetscObject)nep),nep->nloc,nep->nloc,nep->n,nep->n,ctx,&nep->resolvent));
-    PetscCall(MatShellSetOperation(nep->resolvent,MATOP_MULT,(void(*)(void))MatMult_Resolvent));
-    PetscCall(MatShellSetOperation(nep->resolvent,MATOP_DESTROY,(void(*)(void))MatDestroy_Resolvent));
+    PetscCall(MatShellSetOperation(nep->resolvent,MATOP_MULT,(PetscErrorCodeFn*)MatMult_Resolvent));
+    PetscCall(MatShellSetOperation(nep->resolvent,MATOP_DESTROY,(PetscErrorCodeFn*)MatDestroy_Resolvent));
   } else PetscCall(MatShellGetContext(nep->resolvent,&ctx));
   PetscCall(NEPComputeVectors(nep));
   PetscCall(NEPSetWorkVecs(nep,2));

@@ -2,7 +2,19 @@
 
 class FNType(object):
     """
-    FN type
+    FN type.
+
+    - `COMBINE`: A math function defined by combining two functions.
+    - `RATIONAL`: A rational function :math:`f(x)=p(x)/q(x)`.
+    - `EXP`: The exponential function :math:`f(x)=e^x`.
+    - `LOG`: The logarithm function :math:`f(x)=\log{x}`.
+    - `PHI`: One of the Phi_k functions with index k.
+    - `SQRT`: The square root function :math:`f(x)=\sqrt{x}`.
+    - `INVSQRT`: The inverse square root function.
+
+    See Also
+    --------
+    slepc.FNType
     """
     COMBINE  = S_(FNCOMBINE)
     RATIONAL = S_(FNRATIONAL)
@@ -14,12 +26,16 @@ class FNType(object):
 
 class FNCombineType(object):
     """
-    FN type of combination of child functions
+    FN type of combination of child functions.
 
-    - `ADD`:       Addition         f(x) = f1(x)+f2(x)
-    - `MULTIPLY`:  Multiplication   f(x) = f1(x)*f2(x)
-    - `DIVIDE`:    Division         f(x) = f1(x)/f2(x)
-    - `COMPOSE`:   Composition      f(x) = f2(f1(x))
+    - `ADD`:       Addition       :math:`f(x) = f_1(x)+f_2(x)`
+    - `MULTIPLY`:  Multiplication :math:`f(x) = f_1(x)f_2(x)`
+    - `DIVIDE`:    Division       :math:`f(x) = f_1(x)/f_2(x)`
+    - `COMPOSE`:   Composition    :math:`f(x) = f_2(f_1(x))`
+
+    See Also
+    --------
+    slepc.FNCombineType
     """
     ADD      = FN_COMBINE_ADD
     MULTIPLY = FN_COMBINE_MULTIPLY
@@ -28,10 +44,14 @@ class FNCombineType(object):
 
 class FNParallelType(object):
     """
-    FN parallel types
+    FN parallel types.
 
     - `REDUNDANT`:    Every process performs the computation redundantly.
     - `SYNCHRONIZED`: The first process sends the result to the rest.
+
+    See Also
+    --------
+    slepc.FNParallelType
     """
     REDUNDANT    = FN_PARALLEL_REDUNDANT
     SYNCHRONIZED = FN_PARALLEL_SYNCHRONIZED
@@ -41,7 +61,13 @@ class FNParallelType(object):
 cdef class FN(Object):
 
     """
-    FN
+    Mathematical Function.
+
+    The `FN` package provides the functionality to represent a simple
+    mathematical function such as an exponential, a polynomial or a rational
+    function. This is used as a building block for defining the function
+    associated to the nonlinear eigenproblem, as well as for specifying which
+    function to use when computing the action of a matrix function on a vector.
     """
 
     Type         = FNType
@@ -52,36 +78,121 @@ cdef class FN(Object):
         self.obj = <PetscObject*> &self.fn
         self.fn = NULL
 
-    def view(self, Viewer viewer=None):
+    # unary operations
+
+    def __pos__(self):
+        return fn_pos(self)
+
+    def __neg__(self):
+        return fn_neg(self)
+
+    # inplace binary operations
+
+    def __iadd__(self, other):
+        return fn_iadd(self, other)
+
+    def __isub__(self, other):
+        return fn_isub(self, other)
+
+    def __imul__(self, other):
+        return fn_imul(self, other)
+
+    def __idiv__(self, other):
+        return fn_idiv(self, other)
+
+    def __itruediv__(self, other):
+        return fn_idiv(self, other)
+
+    # binary operations
+
+    def __add__(self, other):
+        return fn_add(self, other)
+
+    def __radd__(self, other):
+        return fn_radd(self, other)
+
+    def __sub__(self, other):
+        return fn_sub(self, other)
+
+    def __rsub__(self, other):
+        return fn_rsub(self, other)
+
+    def __mul__(self, other):
+        return fn_mul(self, other)
+
+    def __rmul__(self, other):
+        return fn_rmul(self, other)
+
+    def __div__(self, other):
+        return fn_div(self, other)
+
+    def __rdiv__(self, other):
+        return fn_rdiv(self, other)
+
+    def __truediv__(self, other):
+        return fn_div(self, other)
+
+    def __rtruediv__(self, other):
+        return fn_rdiv(self, other)
+
+    def __matmul__(self, other):
+        return fn_matmul(self, other)
+
+    def __call__(self, arg):
+        if isinstance(arg, Mat):
+            return self.evaluateFunctionMat(arg)
+        else:
+            return self.evaluateFunction(arg)
+
+    #
+
+    def view(self, Viewer viewer=None) -> None:
         """
-        Prints the FN data structure.
+        Print the FN data structure.
+
+        Collective.
 
         Parameters
         ----------
-        viewer: Viewer, optional
-                Visualization context; if not provided, the standard
-                output is used.
+        viewer
+            Visualization context; if not provided, the standard
+            output is used.
+
+        See Also
+        --------
+        slepc.FNView
         """
         cdef PetscViewer vwr = def_Viewer(viewer)
         CHKERR( FNView(self.fn, vwr) )
 
-    def destroy(self):
+    def destroy(self) -> Self:
         """
-        Destroys the FN object.
+        Destroy the FN object.
+
+        Collective.
+
+        See Also
+        --------
+        slepc.FNDestroy
         """
         CHKERR( FNDestroy(&self.fn) )
         self.fn = NULL
         return self
 
-    def create(self, comm=None):
+    def create(self, comm: Comm | None = None) -> Self:
         """
-        Creates the FN object.
+        Create the FN object.
+
+        Collective.
 
         Parameters
         ----------
-        comm: Comm, optional
-              MPI communicator; if not provided, it defaults to all
-              processes.
+        comm
+            MPI communicator; if not provided, it defaults to all processes.
+
+        See Also
+        --------
+        slepc.FNCreate
         """
         cdef MPI_Comm ccomm = def_Comm(comm, SLEPC_COMM_DEFAULT())
         cdef SlepcFN newfn = NULL
@@ -89,88 +200,147 @@ cdef class FN(Object):
         CHKERR( SlepcCLEAR(self.obj) ); self.fn = newfn
         return self
 
-    def setType(self, fn_type):
+    def setType(self, fn_type: Type | str) -> None:
         """
-        Selects the type for the FN object.
+        Set the type for the FN object.
+
+        Logically collective.
 
         Parameters
         ----------
-        fn_type: `FN.Type` enumerate
-                  The inner product type to be used.
+        fn_type
+            The math function type to be used.
+
+        See Also
+        --------
+        getType, slepc.FNSetType
         """
         cdef SlepcFNType cval = NULL
         fn_type = str2bytes(fn_type, &cval)
         CHKERR( FNSetType(self.fn, cval) )
 
-    def getType(self):
+    def getType(self) -> str:
         """
-        Gets the FN type of this object.
+        Get the FN type of this object.
+
+        Not collective.
 
         Returns
         -------
-        type: `FN.Type` enumerate
-              The inner product type currently being used.
+        str
+            The math function type currently being used.
+
+        See Also
+        --------
+        setType, slepc.FNGetType
         """
         cdef SlepcFNType fn_type = NULL
         CHKERR( FNGetType(self.fn, &fn_type) )
         return bytes2str(fn_type)
 
-    def setOptionsPrefix(self, prefix):
+    def setOptionsPrefix(self, prefix: str | None = None) -> None:
         """
-        Sets the prefix used for searching for all FN options in the
-        database.
+        Set the prefix used for searching for all FN options in the database.
+
+        Logically collective.
 
         Parameters
         ----------
-        prefix: string
-                The prefix string to prepend to all FN option
-                requests.
+        prefix
+            The prefix string to prepend to all FN option requests.
 
         Notes
         -----
         A hyphen (``-``) must NOT be given at the beginning of the
         prefix name.  The first character of all runtime options is
         AUTOMATICALLY the hyphen.
+
+        See Also
+        --------
+        appendOptionsPrefix, getOptionsPrefix, slepc.FNGetOptionsPrefix
         """
         cdef const char *cval = NULL
         prefix = str2bytes(prefix, &cval)
         CHKERR( FNSetOptionsPrefix(self.fn, cval) )
 
-    def getOptionsPrefix(self):
+    def appendOptionsPrefix(self, prefix: str | None = None) -> None:
         """
-        Gets the prefix used for searching for all FN options in the
-        database.
+        Append to the prefix used for searching for all FN options in the database.
+
+        Logically collective.
+
+        Parameters
+        ----------
+        prefix
+            The prefix string to prepend to all FN option requests.
+
+        See Also
+        --------
+        setOptionsPrefix, getOptionsPrefix, slepc.FNAppendOptionsPrefix
+        """
+        cdef const char *cval = NULL
+        prefix = str2bytes(prefix, &cval)
+        CHKERR( FNAppendOptionsPrefix(self.fn, cval) )
+
+    def getOptionsPrefix(self) -> str:
+        """
+        Get the prefix used for searching for all FN options in the database.
+
+        Not collective.
 
         Returns
         -------
-        prefix: string
-                The prefix string set for this FN object.
+        str
+            The prefix string set for this FN object.
+
+        See Also
+        --------
+        setOptionsPrefix, appendOptionsPrefix, slepc.FNGetOptionsPrefix
         """
         cdef const char *prefix = NULL
         CHKERR( FNGetOptionsPrefix(self.fn, &prefix) )
         return bytes2str(prefix)
 
-    def setFromOptions(self):
+    def setFromOptions(self) -> None:
         """
-        Sets FN options from the options database.
+        Set FN options from the options database.
+
+        Collective.
 
         Notes
         -----
         To see all options, run your program with the ``-help``
         option.
+
+        See Also
+        --------
+        setOptionsPrefix, slepc.FNSetFromOptions
         """
         CHKERR( FNSetFromOptions(self.fn) )
 
-    def duplicate(self, comm=None):
+    def duplicate(self, comm: Comm | None = None) -> FN:
         """
+        Duplicate the FN object copying all parameters.
+
+        Collective.
+
         Duplicate the FN object copying all parameters, possibly with a
         different communicator.
 
         Parameters
         ----------
-        comm: Comm, optional
-              MPI communicator; if not provided, it defaults to the
-              object's communicator.
+        comm
+            MPI communicator; if not provided, it defaults to the
+            object's communicator.
+
+        Returns
+        -------
+        FN
+            The new object.
+
+        See Also
+        --------
+        create, slepc.FNDuplicate
         """
         cdef MPI_Comm ccomm = def_Comm(comm, PetscObjectComm(<PetscObject>self.fn))
         cdef FN fn = type(self)()
@@ -179,90 +349,143 @@ cdef class FN(Object):
 
     #
 
-    def evaluateFunction(self, x):
+    def evaluateFunction(self, x: Scalar) -> Scalar:
         """
-        Computes the value of the function f(x) for a given x.
+        Compute the value of the function :math:`f(x)` for a given x.
+
+        Not collective.
 
         Parameters
         ----------
-        x: scalar
+        x
             Value where the function must be evaluated.
 
         Returns
         -------
-        y: scalar
-            The result of f(x).
+        Scalar
+            The result of :math:`f(x)`.
+
+        Notes
+        -----
+        Scaling factors are taken into account, so the actual function
+        evaluation will return :math:`b f(a x)`.
+
+        See Also
+        --------
+        evaluateDerivative, evaluateFunctionMat, setScale, slepc.FNEvaluateFunction
         """
         cdef PetscScalar sval = 0
-        CHKERR( FNEvaluateFunction(self.fn, x, &sval) )
+        cdef PetscScalar sarg = asScalar(x)
+        CHKERR( FNEvaluateFunction(self.fn, sarg, &sval) )
         return toScalar(sval)
 
-    def evaluateDerivative(self, x):
+    def evaluateDerivative(self, x: Scalar) -> Scalar:
         """
-        Computes the value of the derivative f'(x) for a given x.
+        Compute the value of the derivative :math:`f'(x)` for a given x.
+
+        Not collective.
 
         Parameters
         ----------
-        x: scalar
+        x
             Value where the derivative must be evaluated.
 
         Returns
         -------
-        y: scalar
-            The result of f'(x).
+        Scalar
+            The result of :math:`f'(x)`.
+
+        Notes
+        -----
+        Scaling factors are taken into account, so the actual derivative
+        evaluation will return :math:`ab f'(a x)`.
+
+        See Also
+        --------
+        evaluateFunction, setScale, slepc.FNEvaluateDerivative
         """
         cdef PetscScalar sval = 0
-        CHKERR( FNEvaluateDerivative(self.fn, x, &sval) )
+        cdef PetscScalar sarg = asScalar(x)
+        CHKERR( FNEvaluateDerivative(self.fn, sarg, &sval) )
         return toScalar(sval)
 
-    def evaluateFunctionMat(self, Mat A, Mat B=None):
+    def evaluateFunctionMat(self, Mat A, Mat B: Mat | None = None) -> Mat:
         """
-        Computes the value of the function f(A) for a given matrix A.
+        Compute the value of the function :math:`f(A)` for a given matrix A.
+
+        Logically collective.
 
         Parameters
         ----------
-        A: Mat
-           Matrix on which the function must be evaluated.
-        B: Mat, optional
-           Placeholder for the result.
+        A
+            Matrix on which the function must be evaluated.
+        B
+            Placeholder for the result.
 
         Returns
         -------
-        B: Mat
-           The result of f(A).
+        petsc4py.PETSc.Mat
+            The result of :math:`f(A)`.
+
+        Notes
+        -----
+        Scaling factors are taken into account, so the actual function
+        evaluation will return :math:`b f(a A)`.
+
+        See Also
+        --------
+        evaluateFunction, evaluateFunctionMatVec, slepc.FNEvaluateFunctionMat
         """
         if B is None: B = A.duplicate()
         CHKERR( FNEvaluateFunctionMat(self.fn, A.mat, B.mat) )
         return B
 
-    def evaluateFunctionMatVec(self, Mat A, Vec v=None):
+    def evaluateFunctionMatVec(self, Mat A, Vec v: Vec | None = None) -> Vec:
         """
-        Computes the first column of the matrix f(A) for a given matrix A.
+        Compute the first column of the matrix :math:`f(A)`.
+
+        Logically collective.
 
         Parameters
         ----------
-        A: Mat
-           Matrix on which the function must be evaluated.
+        A
+            Matrix on which the function must be evaluated.
 
         Returns
         -------
-        v: Vec
-           The first column of the result f(A).
+        petsc4py.PETSc.Vec
+            The first column of the result :math:`f(A)`.
+
+        Notes
+        -----
+        This operation is similar to `evaluateFunctionMat()` but returns only
+        the first column of :math:`f(A)`, hence saving computations in most
+        cases.
+
+        See Also
+        --------
+        evaluateFunctionMat, slepc.FNEvaluateFunctionMatVec
         """
         if v is None: v = A.createVecs('left')
         CHKERR( FNEvaluateFunctionMatVec(self.fn, A.mat, v.vec) )
         return v
 
-    def setScale(self, alpha=None, beta=None):
+    def setScale(self, alpha: Scalar | None = None, beta: Scalar | None = None) -> None:
         """
-        Sets the scaling parameters that define the matematical function.
+        Set the scaling parameters that define the matematical function.
+
+        Logically collective.
 
         Parameters
         ----------
-        alpha: scalar (possibly complex), optional
-               Inner scaling (argument), default is 1.0.
-        beta: scalar (possibly complex), optional
-               Outer scaling (result), default is 1.0.
+        alpha
+            Inner scaling (argument), default is 1.0.
+        beta
+            Outer scaling (result), default is 1.0.
+
+        See Also
+        --------
+        getScale, evaluateFunction, slepc.FNSetScale
         """
         cdef PetscScalar aval = 1.0
         cdef PetscScalar bval = 1.0
@@ -270,29 +493,37 @@ cdef class FN(Object):
         if beta  is not None: bval = asScalar(beta)
         CHKERR( FNSetScale(self.fn, aval, bval) )
 
-    def getScale(self):
+    def getScale(self) -> tuple[Scalar, Scalar]:
         """
-        Gets the scaling parameters that define the matematical function.
+        Get the scaling parameters that define the matematical function.
+
+        Not collective.
 
         Returns
         -------
-        alpha: scalar (possibly complex)
-               Inner scaling (argument).
-        beta: scalar (possibly complex)
-               Outer scaling (result).
+        alpha: Scalar
+            Inner scaling (argument).
+        beta: Scalar
+            Outer scaling (result).
+
+        See Also
+        --------
+        setScale, slepc.FNGetScale
         """
         cdef PetscScalar aval = 0, bval = 0
         CHKERR( FNGetScale(self.fn, &aval, &bval) )
         return (toScalar(aval), toScalar(bval))
 
-    def setMethod(self, meth):
+    def setMethod(self, meth: int) -> None:
         """
-        Selects the method to be used to evaluate functions of matrices.
+        Set the method to be used to evaluate functions of matrices.
+
+        Logically collective.
 
         Parameters
         ----------
-        meth: int
-              An index identifying the method.
+        meth
+            An index identifying the method.
 
         Notes
         -----
@@ -300,47 +531,74 @@ cdef class FN(Object):
         for computing matrix functions. In that case, this function allows
         choosing the wanted method.
 
-        If `meth` is currently set to 0 and the input argument of
+        If ``meth`` is currently set to 0 and the input argument of
         `FN.evaluateFunctionMat()` is a symmetric/Hermitian matrix, then
         the computation is done via the eigendecomposition, rather than
         with the general algorithm.
+
+        See Also
+        --------
+        getMethod, slepc.FNSetMethod
         """
         cdef PetscInt val = asInt(meth)
         CHKERR( FNSetMethod(self.fn, val) )
 
-    def getMethod(self):
+    def getMethod(self) -> int:
         """
-        Gets the method currently used for matrix functions.
+        Get the method currently used for matrix functions.
+
+        Not collective.
 
         Returns
         -------
-        meth: int
-              An index identifying the method.
+        int
+            An index identifying the method.
+
+        See Also
+        --------
+        setMethod, slepc.FNGetMethod
         """
         cdef PetscInt val = 0
         CHKERR( FNGetMethod(self.fn, &val) )
         return toInt(val)
 
-    def setParallel(self, pmode):
+    def setParallel(self, pmode: ParallelType) -> None:
         """
-        Selects the mode of operation in parallel runs.
+        Set the mode of operation in parallel runs.
+
+        Logically collective.
 
         Parameters
         ----------
-        pmode: `FN.ParallelType` enumerate
-               The parallel mode.
+        pmode
+            The parallel mode.
+
+        Notes
+        -----
+        This is relevant only when the function is evaluated on a matrix, with
+        either `evaluateFunctionMat()` or `evaluateFunctionMatVec()`.
+
+        See Also
+        --------
+        evaluateFunctionMat, getParallel, slepc.FNSetParallel
         """
         cdef SlepcFNParallelType val = pmode
         CHKERR( FNSetParallel(self.fn, val) )
 
-    def getParallel(self):
+    def getParallel(self) -> ParallelType:
         """
-        Gets the mode of operation in parallel runs.
+        Get the mode of operation in parallel runs.
+
+        Not collective.
 
         Returns
         -------
-        pmode: `FN.ParallelType` enumerate
-               The parallel mode.
+        ParallelType
+            The parallel mode.
+
+        See Also
+        --------
+        setParallel, slepc.FNGetParallel
         """
         cdef SlepcFNParallelType val = FN_PARALLEL_REDUNDANT
         CHKERR( FNGetParallel(self.fn, &val) )
@@ -348,28 +606,40 @@ cdef class FN(Object):
 
     #
 
-    def setRationalNumerator(self, alpha):
+    def setRationalNumerator(self, alpha: Sequence[Scalar]) -> None:
         """
-        Sets the coefficients of the numerator of the rational function.
+        Set the coefficients of the numerator of the rational function.
+
+        Logically collective.
 
         Parameters
         ----------
-        alpha: array of scalars
+        alpha
             Coefficients.
+
+        See Also
+        --------
+        setRationalDenominator, slepc.FNRationalSetNumerator
         """
         cdef PetscInt na = 0
         cdef PetscScalar *a = NULL
         cdef object tmp1 = iarray_s(alpha, &na, &a)
         CHKERR( FNRationalSetNumerator(self.fn, na, a) )
 
-    def getRationalNumerator(self):
+    def getRationalNumerator(self) -> ArrayScalar:
         """
-        Gets the coefficients of the numerator of the rational function.
+        Get the coefficients of the numerator of the rational function.
+
+        Not collective.
 
         Returns
         -------
-        alpha: array of scalars
+        ArrayScalar
             Coefficients.
+
+        See Also
+        --------
+        setRationalNumerator, slepc.FNRationalGetNumerator
         """
         cdef PetscInt np = 0
         cdef PetscScalar *coeff = NULL
@@ -381,28 +651,40 @@ cdef class FN(Object):
             CHKERR( PetscFree(coeff) )
         return ocoeff
 
-    def setRationalDenominator(self, alpha):
+    def setRationalDenominator(self, alpha: Sequence[Scalar]) -> None:
         """
-        Sets the coefficients of the denominator of the rational function.
+        Set the coefficients of the denominator of the rational function.
+
+        Logically collective.
 
         Parameters
         ----------
-        alpha: array of scalars
+        alpha
             Coefficients.
+
+        See Also
+        --------
+        setRationalNumerator, slepc.FNRationalSetDenominator
         """
         cdef PetscInt na = 0
         cdef PetscScalar *a = NULL
         cdef object tmp1 = iarray_s(alpha, &na, &a)
         CHKERR( FNRationalSetDenominator(self.fn, na, a) )
 
-    def getRationalDenominator(self):
+    def getRationalDenominator(self) -> ArrayScalar:
         """
-        Gets the coefficients of the denominator of the rational function.
+        Get the coefficients of the denominator of the rational function.
+
+        Not collective.
 
         Returns
         -------
-        alpha: array of scalars
+        ArrayScalar
             Coefficients.
+
+        See Also
+        --------
+        setRationalDenominator, slepc.FNRationalGetDenominator
         """
         cdef PetscInt np = 0
         cdef PetscScalar *coeff = NULL
@@ -414,36 +696,54 @@ cdef class FN(Object):
             CHKERR( PetscFree(coeff) )
         return ocoeff
 
-    def setCombineChildren(self, comb, FN f1, FN f2):
+    def setCombineChildren(self, comb: CombineType, FN f1, FN f2) -> None:
         """
-        Sets the two child functions that constitute this combined
-        function, and the way they must be combined.
+        Set the two child functions that constitute this combined function.
+
+        Logically collective.
+
+        Set the two child functions that constitute this combined function,
+        and the way they must be combined.
 
         Parameters
         ----------
-        comb: `FN.CombineType` enumerate
-            How to combine the functions (addition, multiplication, division, composition).
-        f1: FN
+        comb
+            How to combine the functions (addition, multiplication, division,
+            composition).
+        f1
             First function.
-        f2: FN
+        f2
             Second function.
+
+        See Also
+        --------
+        getCombineChildren, slepc.FNCombineSetChildren
         """
         cdef SlepcFNCombineType val = comb
         CHKERR( FNCombineSetChildren(self.fn, val, f1.fn, f2.fn) )
 
-    def getCombineChildren(self):
+    def getCombineChildren(self) -> tuple[CombineType, FN, FN]:
         """
-        Gets the two child functions that constitute this combined
+        Get the two child functions that constitute this combined function.
+
+        Not collective.
+
+        Get the two child functions that constitute this combined
         function, and the way they must be combined.
 
         Returns
         -------
-        comb: `FN.CombineType` enumerate
-            How to combine the functions (addition, multiplication, division, composition).
+        comb: CombineType
+            How to combine the functions (addition, multiplication, division,
+            composition).
         f1: FN
             First function.
         f2: FN
             Second function.
+
+        See Also
+        --------
+        setCombineChildren, slepc.FNCombineGetChildren
         """
         cdef SlepcFNCombineType comb
         cdef FN f1 = FN()
@@ -453,26 +753,42 @@ cdef class FN(Object):
         CHKERR( PetscINCREF(f2.obj) )
         return (comb, f1, f2)
 
-    def setPhiIndex(self, k):
+    def setPhiIndex(self, k: int) -> None:
         """
-        Sets the index of the phi-function.
+        Set the index of the phi-function.
+
+        Logically collective.
 
         Parameters
         ----------
-        k: int
-           The index.
+        k
+            The index.
+
+        Notes
+        -----
+        If not set, the default index is 1.
+
+        See Also
+        --------
+        getPhiIndex, slepc.FNPhiSetIndex
         """
         cdef PetscInt val = asInt(k)
         CHKERR( FNPhiSetIndex(self.fn, val) )
 
-    def getPhiIndex(self):
+    def getPhiIndex(self) -> int:
         """
-        Gets the index of the phi-function.
+        Get the index of the phi-function.
+
+        Not collective.
 
         Returns
         -------
-        k: int
-           The index.
+        int
+            The index.
+
+        See Also
+        --------
+        setPhiIndex, slepc.FNPhiGetIndex
         """
         cdef PetscInt val = 0
         CHKERR( FNPhiGetIndex(self.fn, &val) )
@@ -481,13 +797,15 @@ cdef class FN(Object):
     #
 
     property method:
-        def __get__(self):
+        """The method to be used to evaluate functions of matrices."""
+        def __get__(self) -> int:
             return self.getMethod()
         def __set__(self, value):
             self.setMethod(value)
 
     property parallel:
-        def __get__(self):
+        """The mode of operation in parallel runs."""
+        def __get__(self) -> FNParallelType:
             return self.getParallel()
         def __set__(self, value):
             self.setParallel(value)

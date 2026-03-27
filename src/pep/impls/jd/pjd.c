@@ -152,7 +152,7 @@ static PetscErrorCode PEPSetUp_JD(PEP pep)
   PetscCall(BVGetRandomContext(pep->V,&rand));  /* make sure the random context is available when duplicating */
   PetscCall(PEPSetWorkVecs(pep,5));
   pjd->ld = pep->nev;
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   pjd->ld++;
 #endif
   PetscCall(PetscMalloc2(pep->nmat,&pjd->TV,pep->nmat,&pjd->AX));
@@ -836,7 +836,7 @@ static PetscErrorCode MatCreateVecs_PEPJD(Mat A,Vec *right,Vec *left)
   PetscFunctionBegin;
   PetscCall(MatShellGetContext(A,&matctx));
   pjd   = (PEP_JD*)matctx->pep->data;
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   kspsf = 2;
 #endif
   for (i=0;i<kspsf;i++) PetscCall(BVCreateVec(pjd->V,v+i));
@@ -877,7 +877,7 @@ static PetscErrorCode PEPJDUpdateExtendedPC(PEP pep,PetscScalar theta)
         S[n*j+j] += theta;
       }
       lw_ = 10*n_;
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
       PetscCallBLAS("LAPACKgesvd",LAPACKgesvd_("S","S",&n_,&n_,S,&n_,sg,U,&n_,V,&n_,work,&lw_,&info));
 #else
       PetscCallBLAS("LAPACKgesvd",LAPACKgesvd_("S","S",&n_,&n_,S,&n_,sg,U,&n_,V,&n_,work,&lw_,rwork,&info));
@@ -988,7 +988,7 @@ static PetscErrorCode PEPJDCreateShellPC(PEP pep,Vec *ww)
   /* Create the reference vector */
   PetscCall(BVGetColumn(pjd->V,0,&v[0]));
   v[1] = v[0];
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   kspsf = 2;
 #endif
   PetscCall(VecCreateCompWithVecs(v,kspsf,NULL,&pjd->vtempl));
@@ -1012,8 +1012,8 @@ static PetscErrorCode PEPJDCreateShellPC(PEP pep,Vec *ww)
   }
   PetscCall(PetscNew(&matctx));
   PetscCall(MatCreateShell(PetscObjectComm((PetscObject)pep),kspsf*nloc,kspsf*mloc,PETSC_DETERMINE,PETSC_DETERMINE,matctx,&pjd->Pshell));
-  PetscCall(MatShellSetOperation(pjd->Pshell,MATOP_MULT,(void(*)(void))MatMult_PEPJD));
-  PetscCall(MatShellSetOperation(pjd->Pshell,MATOP_CREATE_VECS,(void(*)(void))MatCreateVecs_PEPJD));
+  PetscCall(MatShellSetOperation(pjd->Pshell,MATOP_MULT,(PetscErrorCodeFn*)MatMult_PEPJD));
+  PetscCall(MatShellSetOperation(pjd->Pshell,MATOP_CREATE_VECS,(PetscErrorCodeFn*)MatCreateVecs_PEPJD));
   matctx->pep = pep;
   target[0] = pep->target; target[1] = 0.0;
   PetscCall(PEPJDMatSetUp(pep,1,target));
@@ -1223,7 +1223,7 @@ static PetscErrorCode PEPSolve_JD(PEP pep)
   pjd->nlock = 0;
   PetscCall(STGetKSP(pep->st,&ksp));
   PetscCall(KSPGetTolerances(ksp,&rtol,&abstol,&dtol,&maxits));
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   kspsf = 2;
 #endif
   PetscCall(PEPJDProcessInitialSpace(pep,ww));
@@ -1237,7 +1237,7 @@ static PetscErrorCode PEPSolve_JD(PEP pep)
   PetscCall(BVCreateVec(pjd->V,&u[0]));
   PetscCall(VecDuplicate(u[0],&p[0]));
   PetscCall(VecDuplicate(u[0],&r[0]));
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   PetscCall(VecDuplicate(u[0],&u[1]));
   PetscCall(VecDuplicate(u[0],&p[1]));
   PetscCall(VecDuplicate(u[0],&r[1]));
@@ -1442,7 +1442,7 @@ static PetscErrorCode PEPSolve_JD(PEP pep)
   PetscCall(VecDestroy(&u[0]));
   PetscCall(VecDestroy(&r[0]));
   PetscCall(VecDestroy(&p[0]));
-#if !defined (PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   PetscCall(VecDestroy(&u[1]));
   PetscCall(VecDestroy(&r[1]));
   PetscCall(VecDestroy(&p[1]));
@@ -1486,18 +1486,18 @@ static PetscErrorCode PEPJDSetRestart_JD(PEP pep,PetscReal keep)
    Logically Collective
 
    Input Parameters:
-+  pep  - the eigenproblem solver context
++  pep  - the polynomial eigensolver context
 -  keep - the number of vectors to be kept at restart
 
    Options Database Key:
-.  -pep_jd_restart - Sets the restart parameter
+.  -pep_jd_restart keep - sets the restart parameter
 
    Notes:
    Allowed values are in the range [0.1,0.9]. The default is 0.5.
 
    Level: advanced
 
-.seealso: PEPJDGetRestart()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDGetRestart()`
 @*/
 PetscErrorCode PEPJDSetRestart(PEP pep,PetscReal keep)
 {
@@ -1523,14 +1523,14 @@ static PetscErrorCode PEPJDGetRestart_JD(PEP pep,PetscReal *keep)
    Not Collective
 
    Input Parameter:
-.  pep - the eigenproblem solver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  keep - the restart parameter
 
    Level: advanced
 
-.seealso: PEPJDSetRestart()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDSetRestart()`
 @*/
 PetscErrorCode PEPJDGetRestart(PEP pep,PetscReal *keep)
 {
@@ -1561,20 +1561,22 @@ static PetscErrorCode PEPJDSetFix_JD(PEP pep,PetscReal fix)
    Logically Collective
 
    Input Parameters:
-+  pep - the eigenproblem solver context
++  pep - the polynomial eigensolver context
 -  fix - threshold for changing the target
 
    Options Database Key:
-.  -pep_jd_fix - the fix value
+.  -pep_jd_fix fix - the fix value
 
-   Note:
+   Notes:
    The target in the correction equation is fixed at the first iterations.
-   When the norm of the residual vector is lower than the fix value,
+   When the norm of the residual vector is lower than the `fix` value,
    the target is set to the corresponding eigenvalue.
+
+   Detailed information can be found at {cite:p}`Cam20a`.
 
    Level: advanced
 
-.seealso: PEPJDGetFix()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDGetFix()`
 @*/
 PetscErrorCode PEPJDSetFix(PEP pep,PetscReal fix)
 {
@@ -1601,19 +1603,14 @@ static PetscErrorCode PEPJDGetFix_JD(PEP pep,PetscReal *fix)
    Not Collective
 
    Input Parameter:
-.  pep - the eigenproblem solver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  fix - threshold for changing the target
 
-   Note:
-   The target in the correction equation is fixed at the first iterations.
-   When the norm of the residual vector is lower than the fix value,
-   the target is set to the corresponding eigenvalue.
-
    Level: advanced
 
-.seealso: PEPJDSetFix()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDSetFix()`
 @*/
 PetscErrorCode PEPJDGetFix(PEP pep,PetscReal *fix)
 {
@@ -1640,20 +1637,20 @@ static PetscErrorCode PEPJDSetReusePreconditioner_JD(PEP pep,PetscBool reusepc)
    Logically Collective
 
    Input Parameters:
-+  pep     - the eigenproblem solver context
++  pep     - the polynomial eigensolver context
 -  reusepc - the reuse flag
 
    Options Database Key:
-.  -pep_jd_reuse_preconditioner - the reuse flag
+.  -pep_jd_reuse_preconditioner (true|false) - the reuse flag
 
    Note:
-   The default value is False. If set to True, the preconditioner is built
+   The default value is `PETSC_FALSE`. If set to `PETSC_TRUE`, the preconditioner is built
    only at the beginning, using the target value. Otherwise, it may be rebuilt
-   (depending on the fix parameter) at each iteration from the Ritz value.
+   (depending on the `fix` parameter) at each iteration from the Ritz value.
 
    Level: advanced
 
-.seealso: PEPJDGetReusePreconditioner(), PEPJDSetFix()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDGetReusePreconditioner()`, `PEPJDSetFix()`
 @*/
 PetscErrorCode PEPJDSetReusePreconditioner(PEP pep,PetscBool reusepc)
 {
@@ -1679,14 +1676,14 @@ static PetscErrorCode PEPJDGetReusePreconditioner_JD(PEP pep,PetscBool *reusepc)
    Not Collective
 
    Input Parameter:
-.  pep - the eigenproblem solver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  reusepc - the reuse flag
 
    Level: advanced
 
-.seealso: PEPJDSetReusePreconditioner()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDSetReusePreconditioner()`
 @*/
 PetscErrorCode PEPJDGetReusePreconditioner(PEP pep,PetscBool *reusepc)
 {
@@ -1719,19 +1716,21 @@ static PetscErrorCode PEPJDSetMinimalityIndex_JD(PEP pep,PetscInt mmidx)
    Logically Collective
 
    Input Parameters:
-+  pep   - the eigenproblem solver context
++  pep   - the polynomial eigensolver context
 -  mmidx - maximum minimality index
 
    Options Database Key:
-.  -pep_jd_minimality_index - the minimality index value
+.  -pep_jd_minimality_index mmidx - the minimality index value
 
-   Note:
+   Notes:
    The default value is equal to the degree of the polynomial. A smaller value
    can be used if the wanted eigenvectors are known to be linearly independent.
 
+   Detailed information can be found at {cite:p}`Cam20a`.
+
    Level: advanced
 
-.seealso: PEPJDGetMinimalityIndex()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDGetMinimalityIndex()`
 @*/
 PetscErrorCode PEPJDSetMinimalityIndex(PEP pep,PetscInt mmidx)
 {
@@ -1758,14 +1757,14 @@ static PetscErrorCode PEPJDGetMinimalityIndex_JD(PEP pep,PetscInt *mmidx)
    Not Collective
 
    Input Parameter:
-.  pep - the eigenproblem solver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  mmidx - minimality index
 
    Level: advanced
 
-.seealso: PEPJDSetMinimalityIndex()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDSetMinimalityIndex()`
 @*/
 PetscErrorCode PEPJDGetMinimalityIndex(PEP pep,PetscInt *mmidx)
 {
@@ -1801,15 +1800,18 @@ static PetscErrorCode PEPJDSetProjection_JD(PEP pep,PEPJDProjection proj)
    Logically Collective
 
    Input Parameters:
-+  pep  - the eigenproblem solver context
--  proj - the type of projection
++  pep  - the polynomial eigensolver context
+-  proj - the type of projection, see `PEPJDProjection` for possible values
 
    Options Database Key:
-.  -pep_jd_projection - the projection type, either orthogonal or harmonic
+.  -pep_jd_projection (orthogonal|harmonic) - the projection type
+
+   Note:
+   Detailed information can be found at {cite:p}`Cam20a`.
 
    Level: advanced
 
-.seealso: PEPJDGetProjection()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDGetProjection()`
 @*/
 PetscErrorCode PEPJDSetProjection(PEP pep,PEPJDProjection proj)
 {
@@ -1835,14 +1837,14 @@ static PetscErrorCode PEPJDGetProjection_JD(PEP pep,PEPJDProjection *proj)
    Not Collective
 
    Input Parameter:
-.  pep - the eigenproblem solver context
+.  pep - the polynomial eigensolver context
 
    Output Parameter:
 .  proj - the type of projection
 
    Level: advanced
 
-.seealso: PEPJDSetProjection()
+.seealso: [](ch:pep), `PEPJD`, `PEPJDSetProjection()`
 @*/
 PetscErrorCode PEPJDGetProjection(PEP pep,PEPJDProjection *proj)
 {
@@ -1853,7 +1855,7 @@ PetscErrorCode PEPJDGetProjection(PEP pep,PEPJDProjection *proj)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode PEPSetFromOptions_JD(PEP pep,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode PEPSetFromOptions_JD(PEP pep,PetscOptionItems PetscOptionsObject)
 {
   PetscBool       flg,b1;
   PetscReal       r1;
@@ -1953,6 +1955,27 @@ static PetscErrorCode PEPDestroy_JD(PEP pep)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   PEPJD - PEPJD = "jd" - The Jacobi-Davidson method for polynomial eigenproblems.
+
+   Notes:
+   This is a preconditioned eigensolver, that is, it may be competitive
+   when computing interior eigenvalues in case the shift-and-invert spectral
+   transformation is too costly and a good preconditioner is available.
+
+   The implemented method is polynomial Jacobi-Davidson {cite:p}`Sle96`.
+   It is possible to set several options of the algorithm, such as the
+   restart (`PEPJDSetRestart()`) or the fix parameter (`PEPJDSetFix()`).
+   The details of the SLEPc implementation are in {cite:p}`Cam20a`.
+
+   The preconditioner is specified via the internal `ST` object and its
+   associated `KSP`. The preconditioner will be recomputed whenever the
+   shift is updated, unless this is disabled with `PEPJDSetReusePreconditioner()`.
+
+   Level: beginner
+
+.seealso: [](ch:pep), `PEP`, `PEPType`, `PEPSetType()`, `PEPGetST()`, `PEPJDSetRestart()`, `PEPJDSetFix()`, `PEPJDSetReusePreconditioner()`
+M*/
 SLEPC_EXTERN PetscErrorCode PEPCreate_JD(PEP pep)
 {
   PEP_JD         *pjd;

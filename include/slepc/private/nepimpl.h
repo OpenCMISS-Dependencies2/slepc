@@ -26,7 +26,7 @@ typedef struct _NEPOps *NEPOps;
 struct _NEPOps {
   PetscErrorCode (*solve)(NEP);
   PetscErrorCode (*setup)(NEP);
-  PetscErrorCode (*setfromoptions)(NEP,PetscOptionItems*);
+  PetscErrorCode (*setfromoptions)(NEP,PetscOptionItems);
   PetscErrorCode (*publishoptions)(NEP);
   PetscErrorCode (*destroy)(NEP);
   PetscErrorCode (*reset)(NEP);
@@ -101,7 +101,7 @@ struct _p_NEP {
   PetscCtxDestroyFn    *stoppingdestroy;
   void                 *convergedctx;
   void                 *stoppingctx;
-  PetscErrorCode       (*monitor[MAXNEPMONITORS])(NEP,PetscInt,PetscInt,PetscScalar*,PetscScalar*,PetscReal*,PetscInt,void*);
+  NEPMonitorFn         *monitor[MAXNEPMONITORS];
   PetscCtxDestroyFn    *monitordestroy[MAXNEPMONITORS];
   void                 *monitorcontext[MAXNEPMONITORS];
   PetscInt             numbermonitors;

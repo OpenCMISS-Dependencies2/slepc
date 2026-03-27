@@ -26,7 +26,7 @@ typedef struct _PEPOps *PEPOps;
 struct _PEPOps {
   PetscErrorCode (*solve)(PEP);
   PetscErrorCode (*setup)(PEP);
-  PetscErrorCode (*setfromoptions)(PEP,PetscOptionItems*);
+  PetscErrorCode (*setfromoptions)(PEP,PetscOptionItems);
   PetscErrorCode (*publishoptions)(PEP);
   PetscErrorCode (*destroy)(PEP);
   PetscErrorCode (*reset)(PEP);
@@ -99,7 +99,7 @@ struct _p_PEP {
   PetscCtxDestroyFn    *stoppingdestroy;
   void                 *convergedctx;
   void                 *stoppingctx;
-  PetscErrorCode       (*monitor[MAXPEPMONITORS])(PEP,PetscInt,PetscInt,PetscScalar*,PetscScalar*,PetscReal*,PetscInt,void*);
+  PEPMonitorFn         *monitor[MAXPEPMONITORS];
   PetscCtxDestroyFn    *monitordestroy[MAXPEPMONITORS];
   void                 *monitorcontext[MAXPEPMONITORS];
   PetscInt             numbermonitors;

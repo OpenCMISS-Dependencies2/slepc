@@ -2,6 +2,7 @@
 
 cdef extern from * nogil:
     """
+    #include "pyapicompat.h"
     #include "lib-slepc/compat.h"
     #include "lib-slepc/custom.h"
 
@@ -72,12 +73,15 @@ include "allocate.pxi"
 # -----------------------------------------------------------------------------
 
 cdef extern from * nogil:
-    ctypedef long   PetscInt
-    ctypedef double PetscReal
-    ctypedef double PetscScalar
+    ctypedef bint      PetscBool
+    const    PetscBool PETSC_TRUE
+    const    PetscBool PETSC_FALSE
+    ctypedef long      PetscInt
+    ctypedef double    PetscReal
+    ctypedef double    PetscScalar
 
 cdef inline object toBool(PetscBool value):
-    return True if value else False
+    return True if value == PETSC_TRUE else False
 cdef inline PetscBool asBool(object value) except? <PetscBool>0:
     return PETSC_TRUE if value else PETSC_FALSE
 
@@ -101,23 +105,18 @@ cdef inline PetscScalar asScalar(object value) except? <PetscScalar>-1.0:
     return PyPetscScalar_AsPetscScalar(value)
 
 cdef extern from "Python.h":
-     PyObject *PyErr_Occurred()
-     ctypedef struct Py_complex:
-         double real
-         double imag
-     Py_complex PyComplex_AsCComplex(object)
+     double PyComplex_RealAsDouble(object)
+     double PyComplex_ImagAsDouble(object)
+     void Py_INCREF(object)
 
 cdef inline object toComplex(PetscScalar rvalue, PetscScalar ivalue):
     return complex(toScalar(rvalue), toScalar(ivalue))
 
 cdef inline PetscReal asComplexReal(object value) except? <PetscReal>-1.0:
-    cdef Py_complex cval = PyComplex_AsCComplex(value)
-    return <PetscReal>cval.real
+    return <PetscReal>PyComplex_RealAsDouble(value)
 
 cdef inline PetscReal asComplexImag(object value) except? <PetscReal>-1.0:
-    cdef Py_complex cval = PyComplex_AsCComplex(value)
-    if cval.real == -1.0 and PyErr_Occurred() != NULL: cval.imag = -1.0
-    return <PetscReal>cval.imag
+    return <PetscReal>PyComplex_ImagAsDouble(value)
 
 cdef extern from * nogil:
     PetscReal PetscRealPart(PetscScalar v)
@@ -159,6 +158,7 @@ include "slepcsvd.pxi"
 include "slepcpep.pxi"
 include "slepcnep.pxi"
 include "slepcmfn.pxi"
+include "slepclme.pxi"
 
 # -----------------------------------------------------------------------------
 
@@ -169,6 +169,7 @@ Scalable Library for Eigenvalue Problem Computations
 DECIDE    = PETSC_DECIDE
 DEFAULT   = PETSC_DEFAULT
 DETERMINE = PETSC_DETERMINE
+CURRENT   = PETSC_CURRENT
 
 include "Sys.pyx"
 include "Util.pyx"
@@ -182,6 +183,7 @@ include "SVD.pyx"
 include "PEP.pyx"
 include "NEP.pyx"
 include "MFN.pyx"
+include "LME.pyx"
 
 # -----------------------------------------------------------------------------
 
@@ -224,6 +226,7 @@ cdef extern from * nogil:
     PetscClassId SLEPC_PEP_CLASSID "PEP_CLASSID"
     PetscClassId SLEPC_NEP_CLASSID "NEP_CLASSID"
     PetscClassId SLEPC_MFN_CLASSID "MFN_CLASSID"
+    PetscClassId SLEPC_LME_CLASSID "LME_CLASSID"
 
 cdef PetscErrorCode register() except PETSC_ERR_PYTHON:
     # make sure all SLEPc packages are initialized
@@ -239,6 +242,7 @@ cdef PetscErrorCode register() except PETSC_ERR_PYTHON:
     PyPetscType_Register(SLEPC_PEP_CLASSID, PEP)
     PyPetscType_Register(SLEPC_NEP_CLASSID, NEP)
     PyPetscType_Register(SLEPC_MFN_CLASSID, MFN)
+    PyPetscType_Register(SLEPC_LME_CLASSID, LME)
     return PETSC_SUCCESS
 
 cdef void finalize() noexcept nogil:

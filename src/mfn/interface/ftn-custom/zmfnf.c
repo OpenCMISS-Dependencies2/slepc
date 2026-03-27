@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-#include <petsc/private/fortranimpl.h>
+#include <petsc/private/ftnimpl.h>
 #include <slepcmfn.h>
 
 #if defined(PETSC_HAVE_FORTRAN_CAPS)
@@ -20,13 +20,10 @@
 #endif
 
 /*
-   These are not usually called from Fortran but allow Fortran users
+   These cannot be called from Fortran but allow Fortran users
    to transparently set these monitors from .F code
 */
-SLEPC_EXTERN void mfnmonitordefault_(MFN *mfn,PetscInt *it,PetscReal *errest,PetscViewerAndFormat **ctx,PetscErrorCode *ierr)
-{
-  *ierr = MFNMonitorDefault(*mfn,*it,*errest,*ctx);
-}
+SLEPC_EXTERN void mfnmonitordefault_(MFN*,PetscInt*,PetscReal*,PetscViewerAndFormat*,PetscErrorCode*);
 
 static struct {
   PetscFortranCallbackId monitor;
@@ -34,26 +31,26 @@ static struct {
 } _cb;
 
 /* These are not extern C because they are passed into non-extern C user level functions */
-static PetscErrorCode ourmonitor(MFN mfn,PetscInt i,PetscReal d,void* ctx)
+static PetscErrorCode ourmonitor(MFN mfn,PetscInt i,PetscReal d,void *ctx)
 {
   PetscObjectUseFortranCallback(mfn,_cb.monitor,(MFN*,PetscInt*,PetscReal*,void*,PetscErrorCode*),(&mfn,&i,&d,_ctx,&ierr));
 }
 
-static PetscErrorCode ourdestroy(void** ctx)
+static PetscErrorCode ourdestroy(PetscCtxRt ctx)
 {
-  MFN mfn = (MFN)*ctx;
+  MFN mfn = *(MFN*)ctx;
   PetscObjectUseFortranCallback(mfn,_cb.monitordestroy,(void*,PetscErrorCode*),(_ctx,&ierr));
 }
 
-SLEPC_EXTERN void mfnmonitorset_(MFN *mfn,void (*monitor)(MFN*,PetscInt*,PetscReal*,void*,PetscErrorCode*),void *mctx,void (*monitordestroy)(void *,PetscErrorCode*),PetscErrorCode *ierr)
+SLEPC_EXTERN void mfnmonitorset_(MFN *mfn,void (*monitor)(MFN*,PetscInt*,PetscReal*,void*,PetscErrorCode*),void *mctx,void (*monitordestroy)(void*,PetscErrorCode*),PetscErrorCode *ierr)
 {
   CHKFORTRANNULLOBJECT(mctx);
   CHKFORTRANNULLFUNCTION(monitordestroy);
-  if ((PetscVoidFunction)monitor == (PetscVoidFunction)mfnmonitordefault_) {
-    *ierr = MFNMonitorSet(*mfn,(PetscErrorCode (*)(MFN,PetscInt,PetscReal,void*))MFNMonitorDefault,*(PetscViewerAndFormat**)mctx,(PetscCtxDestroyFn*)PetscViewerAndFormatDestroy);
+  if ((PetscFortranCallbackFn*)monitor == (PetscFortranCallbackFn*)mfnmonitordefault_) {
+    *ierr = MFNMonitorSet(*mfn,(MFNMonitorFn*)MFNMonitorDefault,*(PetscViewerAndFormat**)mctx,(PetscCtxDestroyFn*)PetscViewerAndFormatDestroy);
   } else {
-    *ierr = PetscObjectSetFortranCallback((PetscObject)*mfn,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.monitor,(PetscVoidFunction)monitor,mctx); if (*ierr) return;
-    *ierr = PetscObjectSetFortranCallback((PetscObject)*mfn,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.monitordestroy,(PetscVoidFunction)monitordestroy,mctx); if (*ierr) return;
+    *ierr = PetscObjectSetFortranCallback((PetscObject)*mfn,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.monitor,(PetscFortranCallbackFn*)monitor,mctx); if (*ierr) return;
+    *ierr = PetscObjectSetFortranCallback((PetscObject)*mfn,PETSC_FORTRAN_CALLBACK_CLASS,&_cb.monitordestroy,(PetscFortranCallbackFn*)monitordestroy,mctx); if (*ierr) return;
     *ierr = MFNMonitorSet(*mfn,ourmonitor,*mfn,ourdestroy);
   }
 }

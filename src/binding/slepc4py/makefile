@@ -5,8 +5,9 @@ default: opt=--inplace
 package = slepc4py
 MODULE  = SLEPc
 
-PYTHON  = python$(py)
+PYTHON  = python3$(py)
 MPIEXEC = mpiexec
+LOC    ?= ${SLEPC_DIR}/${PETSC_ARCH}/doc/html
 
 # ----
 
@@ -29,7 +30,7 @@ srcclean:
 	-${RM} src/${package}/${MODULE}_api.h
 
 .PHONY: clean distclean fullclean
-clean:
+clean: srcclean
 	${PYTHON} setup.py clean --all
 distclean: clean
 	-${RM} -r build  _configtest.* *.py[co]
@@ -50,10 +51,50 @@ uninstall:
 
 # ----
 
+.PHONY: lint ruff-lint cython-lint stubtest
+CYTHONLINT_SRC = src demo
+CYTHONLINT_OPTS =
+RUFF_SRC = .
+RUFF_OPTS = check
+
+cython-lint:
+	conf/cythonize.sh -Wextra -Werror
+	cython-lint ${CYTHONLINT_OPTS} ${CYTHONLINT_SRC}
+
+ruff-lint:
+	ruff ${RUFF_OPTS} ${RUFF_SRC}
+
+lint:
+#	${RM} -r slepc4py-lint-env
+	${PYTHON} -m venv ../../../doc/.venv-sphinx
+	. ../../../doc/.venv-sphinx/bin/activate && python3 -m pip install -r ../../../doc/requirements.txt
+	. ../../../doc/.venv-sphinx/bin/activate && ${MAKE} cython-lint
+#	. ../../../doc/.venv-sphinx/bin/activate && ${MAKE} ruff-lint
+
+stubgen:
+	python -m pip install .
+	python conf/stubgen.py
+
+stubcheck:
+	python -m mypy.stubtest slepc4py --ignore-missing-stub --ignore-disjoint-bases
+
+stubdiff:
+	git diff --quiet -- src/slepc4py/SLEPc.pyi
+
+stubtest:
+	${RM} -r slepc4py-stubtest-env
+	${PYTHON} -m venv slepc4py-stubtest-env
+	. slepc4py-stubtest-env/bin/activate && python -m pip install -r conf/requirements-stubtest.txt
+	. slepc4py-stubtest-env/bin/activate && ${MAKE} stubgen
+	. slepc4py-stubtest-env/bin/activate && ${MAKE} stubcheck
+	. slepc4py-stubtest-env/bin/activate && ${MAKE} stubdiff
+
+# ----
+
 .PHONY: docs docs-html docs-pdf docs-misc
 docs: docs-html docs-pdf docs-misc
-docs-html: rst2html sphinx-html epydoc-html
-docs-pdf:  sphinx-pdf epydoc-pdf
+docs-html: rst2html sphinx-html
+docs-pdf:  sphinx-pdf
 docs-misc: sphinx-man sphinx-info
 
 RST2HTML = $(shell command -v rst2html || command -v rst2html.py || false)
@@ -71,10 +112,10 @@ SPHINXOPTS  =
 .PHONY: sphinx sphinx-html sphinx-pdf sphinx-man sphinx-info
 sphinx: sphinx-html sphinx-pdf sphinx-man sphinx-info
 sphinx-html:
-	mkdir -p build/doctrees docs/usrman
-	${SPHINXBUILD} -b html -d build/doctrees ${SPHINXOPTS} \
-	docs/source docs/usrman
-	${RM} docs/usrman/.buildinfo
+	mkdir -p build/doctrees docs/html
+	${SPHINXBUILD} -a -b html -d build/doctrees ${SPHINXOPTS} \
+	docs/source docs/html
+	${RM} docs/html/.buildinfo
 sphinx-pdf:
 	mkdir -p build/doctrees build/latex
 	${SPHINXBUILD} -b latex -d build/doctrees ${SPHINXOPTS} \
@@ -93,23 +134,45 @@ sphinx-info:
 	${MAKE} -C build/texinfo info > /dev/null
 	mv build/texinfo/*.info docs/
 
-PYTHON2 = python2
-EPYDOCBUILD = ${PYTHON2} ./conf/epydocify.py
-EPYDOCOPTS  =
-.PHONY: epydoc epydoc-html epydoc-pdf
-epydoc: epydoc-html epydoc-pdf
-epydoc-html: srcbuild
-	mkdir -p docs/apiref
-	env CFLAGS=-O0 ${PYTHON2} setup.py -q build --build-lib build/lib.py2
-	env PYTHONPATH=$$PWD/build/lib.py2 ${PYTHON2} -c 'import ${package}.${MODULE}'
-	env PYTHONPATH=$$PWD/build/lib.py2 ${EPYDOCBUILD} ${EPYDOCOPTS} --html -o docs/apiref
-epydoc-pdf:
-
 .PHONY: docsclean
 docsclean:
-	-${RM} docs/*.info docs/*.[137]
-	-${RM} docs/*.html docs/*.pdf
-	-${RM} -r docs/usrman docs/apiref
+	-@${RM} docs/*.info docs/*.[137]
+	-@${RM} docs/*.html docs/*.pdf
+	-@${RM} -r docs/html
+	-@${RM} -r docs/source/_build
+	-@${RM} -r docs/source/demo
+	-@${RM} -r docs/source/reference
+	-@${RM} docs/source/*.inv
+	-@${RM} -r docs/source/_static
+
+.PHONY: webstatic
+webstatic:
+	@if [ ! -d ../../../doc/source/_static ]; then \
+		git clone -b main --depth=1 https://gitlab.com/slepc/webstatic.git ../../../doc/source/_static; \
+	else \
+		cd ../../../doc/source/_static; \
+		git pull; \
+		if [ $$? -ne 0 ]; then \
+			cd - ; \
+			rm -rf ../../../doc/source/_static; \
+			git clone -b main --depth=1 https://gitlab.com/slepc/webstatic.git ../../../doc/source/_static; \
+		fi ;\
+		cd - ;\
+	fi ;\
+	if [ ! -d docs/source/_static/css ]; then mkdir -p docs/source/_static/css ; fi;\
+	if [ ! -e docs/source/_static/css/slepc.css ]; then  ln -s ../../../../../../../doc/source/_static/css/slepc.css docs/source/_static/css/slepc.css ; fi
+
+.PHONY: website
+website: webstatic
+#	CFLAGS=-O0 python -m pip install .
+	@python3 -m venv ../../../doc/.venv-sphinx && \
+	. ../../../doc/.venv-sphinx/bin/activate && \
+	python3 -m pip install --quiet -r ../../../doc/requirements.txt &&\
+	${MAKE} sphinx-html SPHINXOPTS="-j4 -E -T -W" && \
+	rm -rf ${LOC}/slepc4py && \
+	mkdir -p ${LOC}/slepc4py && \
+	mv docs/html/* ${LOC}/slepc4py && \
+	if [ -e docs/source/_static/css/slepc.css ]; then rm docs/source/_static/css/slepc.css; fi
 
 # ----
 

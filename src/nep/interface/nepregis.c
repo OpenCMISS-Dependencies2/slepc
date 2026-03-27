@@ -20,13 +20,13 @@ SLEPC_EXTERN PetscErrorCode NEPCreate_CISS(NEP);
 SLEPC_EXTERN PetscErrorCode NEPCreate_NLEIGS(NEP);
 
 /*@C
-   NEPRegisterAll - Registers all the solvers in the NEP package.
+   NEPRegisterAll - Registers all the solvers in the `NEP` package.
 
    Not Collective
 
    Level: advanced
 
-.seealso: NEPRegister()
+.seealso: [](ch:nep), `NEPRegister()`
 @*/
 PetscErrorCode NEPRegisterAll(void)
 {
@@ -45,13 +45,13 @@ PetscErrorCode NEPRegisterAll(void)
 }
 
 /*@C
-  NEPMonitorRegisterAll - Registers all the monitors in the NEP package.
+  NEPMonitorRegisterAll - Registers all the monitors in the `NEP` package.
 
   Not Collective
 
   Level: advanced
 
-.seealso: NEPMonitorRegister()
+.seealso: [](ch:nep), `NEPMonitorRegister()`
 @*/
 PetscErrorCode NEPMonitorRegisterAll(void)
 {
@@ -63,7 +63,7 @@ PetscErrorCode NEPMonitorRegisterAll(void)
   PetscCall(NEPMonitorRegister("first_approximation",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,NEPMonitorFirstDrawLG,NEPMonitorFirstDrawLGCreate,NULL));
   PetscCall(NEPMonitorRegister("all_approximations",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,NEPMonitorAll,NULL,NULL));
   PetscCall(NEPMonitorRegister("all_approximations",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,NEPMonitorAllDrawLG,NEPMonitorAllDrawLGCreate,NULL));
-  PetscCall(NEPMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,NEPMonitorConverged,NEPMonitorConvergedCreate,NEPMonitorConvergedDestroy));
-  PetscCall(NEPMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,NEPMonitorConvergedDrawLG,NEPMonitorConvergedDrawLGCreate,NEPMonitorConvergedDestroy));
+  PetscCall(NEPMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,NEPMonitorConverged,NEPMonitorConvergedCreate,PetscViewerAndFormatDestroy));
+  PetscCall(NEPMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,NEPMonitorConvergedDrawLG,NEPMonitorConvergedDrawLGCreate,PetscViewerAndFormatDestroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

@@ -1,6 +1,6 @@
 # -*- mode: makefile-gmake -*-
 
-.SUFFIXES: .F  .F90 .f90 ${SUFFIXES} .PETSc .C .cc .cpp .cxx .r .rm .so .html .ad .m .tex .make  .fig .svg .eps .pdf .jpg .png .dvi .ps .F95 .f95 .fiat .cu .kokkos.cxx .raja.cxx .hip.cpp .sycl.cxx
+.SUFFIXES: .F  .F90 .f90 ${SUFFIXES} .PETSc .C .cc .cpp .cxx .r .rm .so .html .ad .m .tex .make  .fig .svg .eps .pdf .jpg .png .dvi .ps .F95 .f95 .fiat .cu .kokkos.cxx .raja.cxx .hip.cxx .sycl.cxx
 
 CONFIGDIR := $(SLEPC_DIR)/config
 
@@ -116,7 +116,7 @@ endif
 $(generatedtest) : $(slepcconf) $(slepcvariables) $(PETSCCONFIGDIR)/gmakegentest.py $(TESTDIR)/.DIR | $$(@D)/.DIR
 	$(PYTHON) $(PETSCCONFIGDIR)/gmakegentest.py --petsc-dir=$(PETSC_DIR) --petsc-arch=$(PETSC_ARCH_DIR) --testdir=$(TESTDIR) --srcdir=$(TESTSRCDIR) --pkg-name=slepc --pkg-pkgs=$(spkgs) --pkg-arch=$(PETSC_ARCH) --pkg-dir=$(SLEPC_DIR)
 
-ifneq ($(filter-out help clean distclean check info gmakeinfo slepc_libs all install install-lib checkbadSource deletefortranstubs allfortranstubs allfortranstubsinplace alletags lint_slepc get%,$(MAKECMDGOALS:clean%=clean)),)
+ifneq ($(filter-out help clean distclean check info gmakeinfo slepc_libs all install install-lib checkbadSource deletefortranbindings fortranbindings alletags lint_slepc shellcheck checkshellcheck get%,$(MAKECMDGOALS:clean%=clean)),)
 include $(generatedtest)
 endif
 
@@ -129,7 +129,7 @@ endif
 PETSC_COMPILE.c = $(call quiet,$(cc_name)) -c $(PCC_FLAGS) $($(CLANGUAGE)FLAGS) $(CCPPFLAGS) $(C_DEPFLAGS)
 PETSC_COMPILE.cxx = $(call quiet,CXX) -c $(CXX_FLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(CXX_DEPFLAGS)
 PETSC_COMPILE.cu = $(call quiet,CUDAC) -c $(MPICXX_INCLUDES) $(CUDAC_FLAGS) $(CUDAPP_FLAGS) $(CUDAFLAGS) $(CUDA_HOSTFLAGS)
-PETSC_COMPILE.hip.cpp = $(call quiet,HIPC) -c $(MPICXX_INCLUDES) $(HIPC_FLAGS) $(HIPPP_FLAGS) $(HIPFLAGS) $(HIPPPFLAGS) $(HIPOPTFLAGS) $(HIPC_DEPFLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(HIP_DEPFLAGS)
+PETSC_COMPILE.hip.cxx = $(call quiet,HIPC) -c $(MPICXX_INCLUDES) $(HIPC_FLAGS) $(HIPPP_FLAGS) $(HIPFLAGS) $(HIPPPFLAGS) $(HIPOPTFLAGS) $(HIPC_DEPFLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(HIP_DEPFLAGS)
 PETSC_COMPILE.sycl.cxx = $(call quiet,SYCLC) -c $(MPICXX_INCLUDES) $(SYCLC_FLAGS) $(SYCLPP_FLAGS) $(SYCLFLAGS) $(SYCLPPFLAGS) $(SYCLOPTFLAGS) $(CXXFLAGS) $(CXXCPPFLAGS) $(SYCL_DEPFLAGS)
 PETSC_GENDEPS.cu = ${CUDA_PETSC_GENDEPS}
 PETSC_COMPILE.F = $(call quiet,FC) -c $(FC_FLAGS) $(FFLAGS) $(FCPPFLAGS) $(FC_DEPFLAGS)
@@ -141,7 +141,7 @@ ifneq ($(KOKKOS_USE_CUDA_COMPILER),)
 else ifneq ($(KOKKOS_USE_CUDACLANG_COMPILER),)
   KOKKOS_COMPILE = $(PETSC_COMPILE.cu)
 else ifneq ($(KOKKOS_USE_HIP_COMPILER),)
-  KOKKOS_COMPILE = $(PETSC_COMPILE.hip.cpp)
+  KOKKOS_COMPILE = $(PETSC_COMPILE.hip.cxx)
 else ifneq ($(KOKKOS_USE_SYCL_COMPILER),)
   KOKKOS_COMPILE = $(PETSC_COMPILE.sycl.cxx)
 else
@@ -167,7 +167,7 @@ else
   PETSC_COMPILE.raja.cxx = ${CXX} -o $*.o -c ${CXX_FLAGS} ${CXXFLAGS} ${CXXCPPFLAGS}
 endif
 
-testlangs := c cu cxx F F90 kokkos.cxx hip.cpp sycl.cxx raja.cxx
+testlangs := c cu cxx F F90 kokkos.cxx hip.cxx sycl.cxx raja.cxx
 $(foreach lang, $(testlangs), $(eval \
   testexe.$(lang) = $(foreach pkg, $(pkgs), $(testsrcs-$(pkg).$(lang):%.$(lang)=$(TESTDIR)/%))))
 concattestlang = $(foreach lang, $(2), $(testsrcs-$(1).$(lang):%.$(lang)=$(TESTDIR)/%.o))
@@ -198,8 +198,8 @@ $(TESTDIR)/%.o : $(EXAMPLESDIR)/%.cu | $$(@D)/.DIR
 	$(PETSC_COMPILE.cu) $(abspath $<) -o $@ # Compile first so that if there is an error, it comes from a normal compile
 	@$(PETSC_GENDEPS.cu) $(abspath $<) -o $(@:%.o=%.d) # Generate the dependencies for later
 
-$(TESTDIR)/%.o : $(EXAMPLESDIR)/%.hip.cpp | $$(@D)/.DIR
-	$(PETSC_COMPILE.hip.cpp) $(abspath $<) -o $@
+$(TESTDIR)/%.o : $(EXAMPLESDIR)/%.hip.cxx | $$(@D)/.DIR
+	$(PETSC_COMPILE.hip.cxx) $(abspath $<) -o $@
 
 # Test modules go in the same directory as the target *.o
 TESTMODDIR = $(@D)
@@ -266,7 +266,7 @@ $(testexe.c) $(testexe.cu) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libslepcall)
 	$(call quiet,CLINKER) $(EXEFLAGS) -o $@ $^ $(SLEPC_TEST_LIB)
 	-$(call macos-firewall-register,$@)
 
-$(testexe.hip.cpp) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
+$(testexe.hip.cxx) : $(TESTDIR)/% : $(TESTDIR)/%.o $$^ $(libpetscall)
 	$(call quiet,CLINKER) -o $@ $^ $(SLEPC_TEST_LIB)
 	-$(call macos-firewall-register,$@)
 
@@ -406,8 +406,6 @@ print-test:
 show-fail:
 	-@$(PYTHON) $(PETSCCONFIGDIR)/report_tests.py -d $(TESTDIR)/counts -f
 
-
-
 # Don't start running tests until starttime has completed
 $(alltesttargets:%=$(TESTDIR)/counts/%.counts) : starttime
 
@@ -462,8 +460,8 @@ help-nontest:
 	-@echo "   lint_slepc - run lint on the source code, including its embedded documentation"
 	-@echo "           delete compiled examples, .o and related files (used in tutorials or test directories)"
 	-@echo "   clang-tidy - run clang-tidy on the SLEPc C code"
-	-@echo "   allfortranstubs - regenerate Fortran stubs/interface definitions, needed after git pulls or source code changes"
-	-@echo "   deletefortranstubs - delete the generated Fortran stubs/interface definitions"
+	-@echo "   fortranbindings - regenerate Fortran stubs/interface definitions, needed after git pulls or source code changes"
+	-@echo "   deletefortranbindings - delete the generated Fortran stubs/interface definitions"
 	-@echo "   checkbadSource - check the source code for violations of coding standards"
 	-@echo "   abitest - Compare ABI/API of two versions of SLEPc library with the old one defined by SLEPC_DIR_ABI_OLD and PETSC_{DIR,ARCH}_ABI_OLD"
 	-@echo "   reconfigure - delete libraries and Fortran module files and run the previously run configure again"

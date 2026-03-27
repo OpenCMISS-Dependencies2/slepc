@@ -27,14 +27,15 @@ class PETSc(package.Package):
     conf += 'PETSC_SCALAR=' + self.scalar + '\n'
     conf += 'PETSC_PRECISION=' + self.precision + '\n'
     conf += 'BLASLAPACK_LIB=' + self.blaslapack_lib + '\n'
+    conf += 'BLASLAPACK_INCLUDE=' + self.blaslapack_include + '\n'
     conf += 'CC=' + self.cc + '\n'
     conf += 'CC_FLAGS=' + self.cc_flags + '\n'
     if hasattr(self,'fc'):
       conf += 'FC=' + self.fc + '\n'
-      conf += 'FC_FLAGS=' + (self.fc_flags if hasattr(self,'fc_flags') else '') + '\n'
+      conf += 'FC_FLAGS=' + getattr(self,'fc_flags','') + '\n'
     if hasattr(self,'cxx'):
       conf += 'CXX=' + self.cxx + '\n'
-      conf += 'CXX_FLAGS=' + (self.cxx_flags if hasattr(self,'cxx_flags') else '') + '\n'
+      conf += 'CXX_FLAGS=' + getattr(self,'cxx_flags','') + '\n'
     conf += 'PETSc configure options:\n'
     args = sorted(set(self.configure_options.split()))
     conf += '\n'.join('    '+a for a in args) + '\n'
@@ -107,7 +108,6 @@ class PETSc(package.Package):
       petscconf_h = os.path.join(self.dir,'include','petscconf.h')
 
     self.buildsharedlib = False
-    self.bfort = 'nobfortinpetsc'
     self.lib_name_suffix = ''
     try:
       with open(self.petscvariables) as f:
@@ -126,7 +126,7 @@ class PETSc(package.Package):
           elif k == 'BUILDSHAREDLIB' and v=='yes':
             self.buildsharedlib = True
           else:
-            if k in ['AR','AR_FLAGS','AR_LIB_SUFFIX','BFORT','BLASLAPACK_LIB','CC','CC_FLAGS','CC_LINKER_SLFLAG','CMAKE','CONFIGURE_OPTIONS','CPP','CXX','CXX_FLAGS','FC_FLAGS','FC_VERSION','LIB_NAME_SUFFIX','MAKE','MAKE_NP','PREFIXDIR','RANLIB','SCALAPACK_LIB','SEDINPLACE','SL_LINKER_SUFFIX']:
+            if k in ['AR','AR_FLAGS','AR_LIB_SUFFIX','BFORT','BLASLAPACK_LIB','BLASLAPACK_INCLUDE','CC','CC_FLAGS','CC_LINKER_SLFLAG','CMAKE','CONFIGURE_OPTIONS','CPP','CXX','CXX_FLAGS','FC_FLAGS','FC_VERSION','LIB_NAME_SUFFIX','MAKE','MAKE_NP','PREFIXDIR','RANLIB','SCALAPACK_LIB','SEDINPLACE','SL_LINKER_SUFFIX']:
               setattr(self,k.lower(),v)
     except:
       self.log.Exit('Cannot process file ' + self.petscvariables)
@@ -250,6 +250,15 @@ class PETSc(package.Package):
     except RuntimeError:
       pass
 
+  def isIntel(self):
+    '''returns true if the compiler is an Intel compiler'''
+    try:
+      (result, output) = self.RunCommand(self.cc+' --help | head -n 80',)
+      if 'Intel(R)' in output:
+        return 1
+    except RuntimeError:
+      pass
+
   def removeWarningFlags(self,flags):
     outflags = []
     for flag in flags:
@@ -276,4 +285,3 @@ class PETSc(package.Package):
       return ' '.join(outflags)
     else:
       return ''
-

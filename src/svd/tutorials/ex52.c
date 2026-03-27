@@ -8,7 +8,7 @@
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 */
 
-static char help[] = "Partial hyperbolic singular value decomposition (HSVD) from a file.\n"
+static char help[] = "Partial hyperbolic singular value decomposition (HSVD) from a file.\n\n"
   "The command line options are:\n"
   "  -file <filename>, PETSc binary file containing matrix A.\n"
   "  -p <p>, where <p> = number of -1's in signature.\n"
@@ -192,7 +192,7 @@ int main(int argc,char **argv)
          args: -svd_type cross -svd_cross_explicitmatrix {{0 1}}
          suffix: 3_cross
       test:
-         args: -svd_type cyclic -svd_cyclic_explicitmatrix {{0 1}} -svd_cyclic_bv_definite_tol 1e-13 -svd_cyclic_st_ksp_type gcr -svd_cyclic_st_pc_type jacobi -svd_ncv 250
+         args: -svd_type cyclic -svd_cyclic_explicitmatrix {{0 1}} -svd_cyclic_bv_definite_tol 1e-13 -svd_cyclic_st_ksp_type gcr -svd_cyclic_st_pc_type jacobi -svd_ncv 230
          suffix: 3_cyclic
       test:
          args: -svd_type trlanczos -svd_trlanczos_explicitmatrix {{0 1}} -bv_definite_tol 1e-13
@@ -225,7 +225,7 @@ int main(int argc,char **argv)
          args: -svd_type cross -svd_max_it 1000 -svd_cross_bv_definite_tol 1e-14
          suffix: 5_cross
       test:
-         args: -svd_type cyclic -svd_max_it 4000 -svd_ncv 32 -svd_cyclic_st_ksp_type preonly -svd_cyclic_st_pc_type jacobi -svd_cyclic_bv_definite_tol 1e-14
+         args: -svd_type cyclic -svd_max_it 4000 -svd_ncv 36 -svd_cyclic_st_ksp_type preonly -svd_cyclic_st_pc_type jacobi -svd_cyclic_bv_definite_tol 1e-14 -svd_cyclic_eps_krylovschur_restart .7
          suffix: 5_cyclic
       test:
          args: -svd_type trlanczos -svd_max_it 4000 -svd_ncv 28 -bv_definite_tol 1e-14

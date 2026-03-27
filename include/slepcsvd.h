@@ -23,29 +23,28 @@ SLEPC_EXTERN PetscErrorCode SVDInitializePackage(void);
 SLEPC_EXTERN PetscErrorCode SVDFinalizePackage(void);
 
 /*S
-     SVD - Abstract SLEPc object that manages all the singular value
-     problem solvers.
+   SVD - SLEPc object that manages all the singular value problem solvers.
 
    Level: beginner
 
-.seealso:  SVDCreate()
+.seealso: [](ch:svd), `SVDCreate()`
 S*/
 typedef struct _p_SVD* SVD;
 
 /*J
-    SVDType - String with the name of a SLEPc singular value solver
+   SVDType - String with the name of a singular value solver.
 
    Level: beginner
 
-.seealso: SVDSetType(), SVD
+.seealso: [](ch:svd), `SVDSetType()`, `SVD`
 J*/
-typedef const char* SVDType;
+typedef const char *SVDType;
 #define SVDCROSS       "cross"
 #define SVDCYCLIC      "cyclic"
-#define SVDLAPACK      "lapack"
 #define SVDLANCZOS     "lanczos"
 #define SVDTRLANCZOS   "trlanczos"
 #define SVDRANDOMIZED  "randomized"
+#define SVDLAPACK      "lapack"
 #define SVDSCALAPACK   "scalapack"
 #define SVDKSVD        "ksvd"
 #define SVDELEMENTAL   "elemental"
@@ -55,34 +54,117 @@ typedef const char* SVDType;
 SLEPC_EXTERN PetscClassId SVD_CLASSID;
 
 /*E
-    SVDProblemType - Determines the type of singular value problem
+   SVDProblemType - Determines the type of the singular value problem.
 
-    Level: beginner
+   Values:
++  `SVD_STANDARD`    - standard SVD (SVD)
+.  `SVD_GENERALIZED` - generalized SVD (GSVD)
+-  `SVD_HYPERBOLIC`  - hyperbolic SVD (HSVD)
 
-.seealso: SVDSetProblemType(), SVDGetProblemType()
+   Level: beginner
+
+.seealso: [](ch:svd), `SVDSetProblemType()`, `SVDGetProblemType()`
 E*/
-typedef enum { SVD_STANDARD=1,
-               SVD_GENERALIZED,   /* GSVD */
-               SVD_HYPERBOLIC     /* HSVD */
+typedef enum { SVD_STANDARD    = 1,
+               SVD_GENERALIZED = 2,
+               SVD_HYPERBOLIC  = 3
              } SVDProblemType;
 
+/*MC
+   SVD_STANDARD - A (standard) singular value problem (SVD).
+
+   Note:
+   The problem is formulated as $A=U\Sigma V^*$, where $A$ is a possibly
+   non-square matrix.
+
+   Level: beginner
+
+.seealso: [](ch:svd), `SVDProblemType`, `SVDSetProblemType()`, `SVD_GENERALIZED`, `SVD_HYPERBOLIC`
+M*/
+
+/*MC
+   SVD_GENERALIZED - A generalized singular value problem (GSVD).
+
+   Note:
+   The problem is formulated as $U^*AX=C$, $V^*BX=S$, where $A$ and $B$
+   have the same number of columns.
+
+   Level: beginner
+
+.seealso: [](ch:svd), `SVDProblemType`, `SVDSetProblemType()`, `SVD_STANDARD`, `SVD_HYPERBOLIC`
+M*/
+
+/*MC
+   SVD_HYPERBOLIC - A hyperbolic singular value problem (HSVD).
+
+   Note:
+   The problem is formulated as $A=U\Sigma V^*$, with $U^*\Omega U=\tilde\Omega$,
+   where $A$ is a possibly non-square matrix, and $\Omega$, $\tilde\Omega$
+   are signature matrices.
+
+   Level: beginner
+
+.seealso: [](ch:svd), `SVDProblemType`, `SVDSetProblemType()`, `SVD_STANDARD`, `SVD_GENERALIZED`
+M*/
+
 /*E
-    SVDWhich - Determines whether largest or smallest singular triplets
-    are to be computed
+   SVDWhich - Determines whether largest or smallest singular values
+   are to be computed.
 
-    Level: intermediate
+   Values:
++  `SVD_LARGEST`  - largest singular values
+-  `SVD_SMALLEST` - smallest singular values
 
-.seealso: SVDSetWhichSingularTriplets(), SVDGetWhichSingularTriplets()
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSetWhichSingularTriplets()`, `SVDGetWhichSingularTriplets()`
 E*/
 typedef enum { SVD_LARGEST,
                SVD_SMALLEST } SVDWhich;
 
+/*MC
+   SVD_LARGEST - The solver is configured to compute largest singular values.
+
+   Note:
+   This is the default.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDWhich`, `SVDSetWhichSingularTriplets()`, `SVD_SMALLEST`
+M*/
+
+/*MC
+   SVD_SMALLEST - The solver is configured to compute smallest singular values.
+
+   Note:
+   Computing small singular values is generally more difficult than computing
+   largest ones, because in many cases these values are very small and
+   tightly clustered together. In the case of rank-deficient matrices, smallest
+   singular values are zero, and this may pose difficulties to the solvers.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDWhich`, `SVDSetWhichSingularTriplets()`, `SVD_LARGEST`
+M*/
+
 /*E
-    SVDErrorType - The error type used to assess accuracy of computed solutions
+   SVDErrorType - The error type used to assess accuracy of computed solutions.
 
-    Level: intermediate
+   Values:
++  `SVD_ERROR_ABSOLUTE` - compute error bound as $\|r\|$
+.  `SVD_ERROR_RELATIVE` - compute error bound as $\|r\|/\sigma$
+-  `SVD_ERROR_NORM`     - compute error bound as $\|r\|/\max\{\|A\|,\|B\|\}$
 
-.seealso: SVDComputeError()
+   Note:
+   The residual norm $\|r\|$ is actually computed from two parts, such as
+   $\sqrt{\eta_1^2+\eta_2^2}$ with $\eta_1 = \|Av-\sigma u\|_2$ and
+   $\eta_2 = \|A^*u-\sigma v\|_2$, see more details at `SVDComputeError()`.
+   There is also a normalization factor related to the norm of the vectors,
+   which also varies with the problem type.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDComputeError()`, `SVDProblemType`
 E*/
 typedef enum { SVD_ERROR_ABSOLUTE,
                SVD_ERROR_RELATIVE,
@@ -90,11 +172,21 @@ typedef enum { SVD_ERROR_ABSOLUTE,
 SLEPC_EXTERN const char *SVDErrorTypes[];
 
 /*E
-    SVDConv - Determines the convergence test
+   SVDConv - The convergence criterion to be used by the solver.
 
-    Level: intermediate
+   Values:
++  `SVD_CONV_ABS`   - absolute convergence criterion, $\|r\|$
+.  `SVD_CONV_REL`   - convergence criterion relative to singular value, $\|r\|/\sigma$
+.  `SVD_CONV_NORM`  - convergence criterion relative to matrix norms, $\|r\|/\max\{\|A\|,\|B\|\}$
+.  `SVD_CONV_MAXIT` - no convergence until maximum number of iterations has been reached
+-  `SVD_CONV_USER`  - convergence dictated by user-provided function
 
-.seealso: SVDSetConvergenceTest(), SVDSetConvergenceTestFunction()
+   Note:
+   The `SVD_CONV_MAXIT` convergence criterion is used only in `SVDRANDOMIZED`.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSetConvergenceTest()`, `SVDSetConvergenceTestFunction()`, `SVDSetTolerances()`
 E*/
 typedef enum { SVD_CONV_ABS,
                SVD_CONV_REL,
@@ -103,23 +195,79 @@ typedef enum { SVD_CONV_ABS,
                SVD_CONV_USER } SVDConv;
 
 /*E
-    SVDStop - Determines the stopping test
+   SVDStop - The stopping test to decide the termination of the outer loop
+   of the singular value solver.
 
-    Level: advanced
+   Values:
++  `SVD_STOP_BASIC`     - default stopping test
+.  `SVD_STOP_USER`      - user-provided stopping test
+-  `SVD_STOP_THRESHOLD` - threshold stopping test
 
-.seealso: SVDSetStoppingTest(), SVDSetStoppingTestFunction()
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDSetStoppingTest()`, `SVDSetStoppingTestFunction()`
 E*/
 typedef enum { SVD_STOP_BASIC,
                SVD_STOP_USER,
                SVD_STOP_THRESHOLD } SVDStop;
 
+/*MC
+   SVD_STOP_BASIC - The default stopping test.
+
+   Note:
+   By default, the termination of the outer loop is decided by calling
+   `SVDStoppingBasic()`, which will stop if all requested singular values are converged,
+   or if the maximum number of iterations has been reached.
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDStop`, `SVDSetStoppingTest()`, `SVDStoppingBasic()`
+M*/
+
+/*MC
+   SVD_STOP_USER - The user-provided stopping test.
+
+   Note:
+   Customized stopping test using the user-provided function given with
+   `SVDSetStoppingTestFunction()`.
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDStop`, `SVDSetStoppingTest()`, `SVDSetStoppingTestFunction()`
+M*/
+
+/*MC
+   SVD_STOP_THRESHOLD - The threshold stopping test.
+
+   Note:
+   When a threshold has been provided with `SVDSetThreshold()`, the termination
+   of the outer loop is decided by calling `SVDStoppingThreshold()`, which will
+   stop when one of the computed singular values is not above/below the threshold.
+   If a number of wanted singular values has been specified via `SVDSetDimensions()`
+   then it is also taken into account, and the solver will stop when one of the
+   two conditions (threshold or number of converged values) is met.
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDStop`, `SVDSetStoppingTest()`, `SVDStoppingThreshold()`, `SVDSetThreshold()`, `SVDSetDimensions()`
+M*/
+
 /*E
-    SVDConvergedReason - Reason a singular value solver was said to
-         have converged or diverged
+   SVDConvergedReason - Reason a singular value solver was determined to have
+   converged or diverged.
+
+   Values:
++  `SVD_CONVERGED_TOL`          - converged up to tolerance
+.  `SVD_CONVERGED_USER`         - converged due to a user-defined condition
+.  `SVD_CONVERGED_MAXIT`        - reached maximum number of iterations with `SVD_CONV_MAXIT` criterion
+.  `SVD_DIVERGED_ITS`           - exceeded the maximum number of allowed iterations
+.  `SVD_DIVERGED_BREAKDOWN`     - generic breakdown in method
+.  `SVD_DIVERGED_SYMMETRY_LOST` - underlying indefinite eigensolver was not able to keep symmetry
+-  `SVD_CONVERGED_ITERATING`    - the solver is still running
 
    Level: intermediate
 
-.seealso: SVDSolve(), SVDGetConvergedReason(), SVDSetTolerances()
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDSetTolerances()`
 E*/
 typedef enum {/* converged */
               SVD_CONVERGED_TOL                =  1,
@@ -132,13 +280,86 @@ typedef enum {/* converged */
               SVD_CONVERGED_ITERATING          =  0 } SVDConvergedReason;
 SLEPC_EXTERN const char *const*SVDConvergedReasons;
 
+/*MC
+   SVD_CONVERGED_TOL - The computed error estimates, based on residual norms,
+   for all requested singular values are below the tolerance.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`
+M*/
+
+/*MC
+   SVD_CONVERGED_USER - The solver was declared converged due to a user-defined condition.
+
+   Note:
+   This happens only when a user-defined stopping test has been set with
+   `SVDSetStoppingTestFunction()`.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`, `SVDSetStoppingTestFunction()`
+M*/
+
+/*MC
+   SVD_CONVERGED_MAXIT - The solver has reached the maximum number of iterations
+   with the `SVD_CONV_MAXIT` criterion.
+
+   Note:
+   This is considered a successful exit, because the user wanted to do a fixed
+   number of iterations. But be aware that the computed solution may be inaccurate,
+   in particular, individual singular vectors will not have good residual. This
+   is available in `SVDRANDOMIZED` only.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`, `SVD_CONV_MAXIT`, `SVDRANDOMIZED`
+M*/
+
+/*MC
+   SVD_DIVERGED_ITS - Exceeded the maximum number of allowed iterations
+   before the convergence criterion was satisfied.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`
+M*/
+
+/*MC
+   SVD_DIVERGED_BREAKDOWN - A breakdown in the solver was detected so the
+   method could not continue.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`
+M*/
+
+/*MC
+   SVD_DIVERGED_SYMMETRY_LOST - The selected solver uses a pseudo-Lanczos recurrence,
+   which is numerically unstable, and a symmetry test revealed that instability
+   had appeared so the solver could not continue.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`
+M*/
+
+/*MC
+   SVD_CONVERGED_ITERATING - This value is returned if `SVDGetConvergedReason()` is called
+   while `SVDSolve()` is still running.
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDSolve()`, `SVDGetConvergedReason()`, `SVDConvergedReason`
+M*/
+
 /*S
    SVDStoppingCtx - Data structure (C struct) to hold additional information to
    be used in some stopping test functions.
 
    Level: advanced
 
-.seealso: SVDSetStoppingTestFunction()
+.seealso: [](ch:svd), `SVDSetStoppingTestFunction()`
 S*/
 struct _n_SVDStoppingCtx {
   PetscReal firstsv;    /* the value of the first converged singular value */
@@ -180,23 +401,13 @@ SLEPC_EXTERN PetscErrorCode SVDGetWhichSingularTriplets(SVD,SVDWhich*);
 SLEPC_EXTERN PetscErrorCode SVDSetThreshold(SVD,PetscReal,PetscBool);
 SLEPC_EXTERN PetscErrorCode SVDGetThreshold(SVD,PetscReal*,PetscBool*);
 SLEPC_EXTERN PetscErrorCode SVDSetFromOptions(SVD);
-SLEPC_EXTERN PetscErrorCode SVDSetOptionsPrefix(SVD,const char*);
-SLEPC_EXTERN PetscErrorCode SVDAppendOptionsPrefix(SVD,const char*);
+SLEPC_EXTERN PetscErrorCode SVDSetOptionsPrefix(SVD,const char[]);
+SLEPC_EXTERN PetscErrorCode SVDAppendOptionsPrefix(SVD,const char[]);
 SLEPC_EXTERN PetscErrorCode SVDGetOptionsPrefix(SVD,const char*[]);
 SLEPC_EXTERN PetscErrorCode SVDSetDSType(SVD);
 SLEPC_EXTERN PetscErrorCode SVDSetUp(SVD);
 SLEPC_EXTERN PetscErrorCode SVDSolve(SVD);
 SLEPC_EXTERN PetscErrorCode SVDGetIterationNumber(SVD,PetscInt*);
-SLEPC_EXTERN PetscErrorCode SVDSetConvergenceTest(SVD,SVDConv);
-SLEPC_EXTERN PetscErrorCode SVDGetConvergenceTest(SVD,SVDConv*);
-SLEPC_EXTERN PetscErrorCode SVDConvergedAbsolute(SVD,PetscReal,PetscReal,PetscReal*,void*);
-SLEPC_EXTERN PetscErrorCode SVDConvergedRelative(SVD,PetscReal,PetscReal,PetscReal*,void*);
-SLEPC_EXTERN PetscErrorCode SVDConvergedNorm(SVD,PetscReal,PetscReal,PetscReal*,void*);
-SLEPC_EXTERN PetscErrorCode SVDConvergedMaxIt(SVD,PetscReal,PetscReal,PetscReal*,void*);
-SLEPC_EXTERN PetscErrorCode SVDSetStoppingTest(SVD,SVDStop);
-SLEPC_EXTERN PetscErrorCode SVDGetStoppingTest(SVD,SVDStop*);
-SLEPC_EXTERN PetscErrorCode SVDStoppingBasic(SVD,PetscInt,PetscInt,PetscInt,PetscInt,SVDConvergedReason*,void*);
-SLEPC_EXTERN PetscErrorCode SVDStoppingThreshold(SVD,PetscInt,PetscInt,PetscInt,PetscInt,SVDConvergedReason*,void*);
 SLEPC_EXTERN PetscErrorCode SVDGetConvergedReason(SVD,SVDConvergedReason*);
 SLEPC_EXTERN PetscErrorCode SVDGetConverged(SVD,PetscInt*);
 SLEPC_EXTERN PetscErrorCode SVDGetSingularTriplet(SVD,PetscInt,PetscReal*,Vec,Vec);
@@ -222,74 +433,157 @@ SLEPC_EXTERN PetscErrorCode SVDSetWorkVecs(SVD,PetscInt,PetscInt);
 SLEPC_EXTERN PetscErrorCode SVDSetTrackAll(SVD,PetscBool);
 SLEPC_EXTERN PetscErrorCode SVDGetTrackAll(SVD,PetscBool*);
 
-SLEPC_EXTERN PetscErrorCode SVDMonitor(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt);
-SLEPC_EXTERN PetscErrorCode SVDMonitorSet(SVD,PetscErrorCode (*)(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,void*),void*,PetscCtxDestroyFn*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorCancel(SVD);
-SLEPC_EXTERN PetscErrorCode SVDGetMonitorContext(SVD,void*);
+/*S
+   SVDMonitorFn - A function prototype for functions provided to `SVDMonitorSet()`.
 
-SLEPC_EXTERN PetscErrorCode SVDMonitorSetFromOptions(SVD,const char[],const char[],void*,PetscBool);
-SLEPC_EXTERN PetscErrorCode SVDMonitorLGCreate(MPI_Comm,const char[],const char[],const char[],PetscInt,const char*[],int,int,int,int,PetscDrawLG*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorFirst(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorFirstDrawLG(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorFirstDrawLGCreate(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**);
-SLEPC_EXTERN PetscErrorCode SVDMonitorAll(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorAllDrawLG(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorAllDrawLGCreate(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConverged(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConvergedCreate(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConvergedDrawLG(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConvergedDrawLGCreate(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConvergedDestroy(PetscViewerAndFormat**);
-SLEPC_EXTERN PetscErrorCode SVDMonitorConditioning(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*);
+   Calling Sequence:
++  svd    - the singular value solver context
+.  its    - iteration number
+.  nconv  - number of converged singular triplets
+.  sigma  - singular values
+.  errest - relative error estimates for each singular triplet
+.  nest   - number of error estimates
+-  ctx    - optional monitoring context, as provided with `SVDMonitorSet()`
+
+   Level: intermediate
+
+.seealso: [](ch:svd), `SVDMonitorSet()`
+S*/
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDMonitorFn(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscCtx ctx);
+
+/*S
+   SVDMonitorRegisterFn - A function prototype for functions provided to `SVDMonitorRegister()`.
+
+   Calling Sequence:
++  svd    - the singular value solver context
+.  its    - iteration number
+.  nconv  - number of converged singular triplets
+.  sigma  - singular values
+.  errest - relative error estimates for each singular triplet
+.  nest   - number of error estimates
+-  ctx    - `PetscViewerAndFormat` object
+
+   Level: advanced
+
+   Note:
+   This is an `SVDMonitorFn` specialized for a context of `PetscViewerAndFormat`.
+
+.seealso: [](ch:svd), `SVDMonitorSet()`, `SVDMonitorRegister()`, `SVDMonitorFn`, `SVDMonitorRegisterCreateFn`, `SVDMonitorRegisterDestroyFn`
+S*/
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDMonitorRegisterFn(SVD svd,PetscInt its,PetscInt nconv,PetscReal sigma[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *ctx);
+
+/*S
+   SVDMonitorRegisterCreateFn - A function prototype for functions that do
+   the creation when provided to `SVDMonitorRegister()`.
+
+   Calling Sequence:
++  viewer - the viewer to be used with the `SVDMonitorRegisterFn`
+.  format - the format of the viewer
+.  ctx    - a context for the monitor
+-  result - a `PetscViewerAndFormat` object
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDMonitorRegisterFn`, `SVDMonitorSet()`, `SVDMonitorRegister()`, `SVDMonitorFn`, `SVDMonitorRegisterDestroyFn`
+S*/
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDMonitorRegisterCreateFn(PetscViewer viewer,PetscViewerFormat format,PetscCtx ctx,PetscViewerAndFormat **result);
+
+/*S
+   SVDMonitorRegisterDestroyFn - A function prototype for functions that do the after
+   use destruction when provided to `SVDMonitorRegister()`.
+
+   Calling Sequence:
+.  vf - a `PetscViewerAndFormat` object to be destroyed, including any context
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDMonitorRegisterFn`, `SVDMonitorSet()`, `SVDMonitorRegister()`, `SVDMonitorFn`, `SVDMonitorRegisterCreateFn`
+S*/
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDMonitorRegisterDestroyFn(PetscViewerAndFormat **result);
+
+SLEPC_EXTERN PetscErrorCode SVDMonitor(SVD,PetscInt,PetscInt,PetscReal[],PetscReal[],PetscInt);
+SLEPC_EXTERN PetscErrorCode SVDMonitorSet(SVD,SVDMonitorFn,PetscCtx,PetscCtxDestroyFn*);
+SLEPC_EXTERN PetscErrorCode SVDMonitorCancel(SVD);
+SLEPC_EXTERN PetscErrorCode SVDGetMonitorContext(SVD,PetscCtxRt);
+
+SLEPC_EXTERN PetscErrorCode SVDMonitorSetFromOptions(SVD,const char[],const char[],PetscCtx,PetscBool);
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorFirst;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorFirstDrawLG;
+SLEPC_EXTERN SVDMonitorRegisterCreateFn  SVDMonitorFirstDrawLGCreate;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorAll;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorAllDrawLG;
+SLEPC_EXTERN SVDMonitorRegisterCreateFn  SVDMonitorAllDrawLGCreate;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorConverged;
+SLEPC_EXTERN SVDMonitorRegisterCreateFn  SVDMonitorConvergedCreate;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorConvergedDrawLG;
+SLEPC_EXTERN SVDMonitorRegisterCreateFn  SVDMonitorConvergedDrawLGCreate;
+SLEPC_EXTERN SVDMonitorRegisterFn        SVDMonitorConditioning;
 
 SLEPC_EXTERN PetscFunctionList SVDList;
 SLEPC_EXTERN PetscFunctionList SVDMonitorList;
 SLEPC_EXTERN PetscFunctionList SVDMonitorCreateList;
 SLEPC_EXTERN PetscFunctionList SVDMonitorDestroyList;
 SLEPC_EXTERN PetscErrorCode SVDRegister(const char[],PetscErrorCode(*)(SVD));
-SLEPC_EXTERN PetscErrorCode SVDMonitorRegister(const char[],PetscViewerType,PetscViewerFormat,PetscErrorCode(*)(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,PetscViewerAndFormat*),PetscErrorCode(*)(PetscViewer,PetscViewerFormat,void*,PetscViewerAndFormat**),PetscErrorCode(*)(PetscViewerAndFormat**));
+SLEPC_EXTERN PetscErrorCode SVDMonitorRegister(const char[],PetscViewerType,PetscViewerFormat,SVDMonitorRegisterFn*,SVDMonitorRegisterCreateFn*,SVDMonitorRegisterDestroyFn*);
 
 SLEPC_EXTERN PetscErrorCode SVDAllocateSolution(SVD,PetscInt);
 SLEPC_EXTERN PetscErrorCode SVDReallocateSolution(SVD,PetscInt);
 
 /*S
-  SVDConvergenceTestFn - A prototype of an SVD convergence test function that would be passed to SVDSetConvergenceTestFunction()
+   SVDConvergenceTestFn - A prototype of an `SVD` convergence test function that
+   would be passed to `SVDSetConvergenceTestFunction()`.
 
-  Calling Sequence:
-+   svd    - singular value solver context obtained from SVDCreate()
-.   sigma  - computed singular value
-.   res    - residual norm associated to the singular triplet
-.   errest - [output] computed error estimate
--   ctx    - [optional] user-defined context for private data for the
-             convergence test routine (may be NULL)
+   Calling Sequence:
++  svd    - the singular value solver context
+.  sigma  - computed singular value
+.  res    - residual norm associated to the singular triplet
+.  errest - [output] computed error estimate
+-  ctx    - optional convergence context, as set by `SVDSetConvergenceTestFunction()`
 
-  Level: advanced
+   Level: advanced
 
-.seealso: SVDSetConvergenceTestFunction()
+.seealso: [](ch:svd), `SVDSetConvergenceTest()`, `SVDSetConvergenceTestFunction()`
 S*/
-PETSC_EXTERN_TYPEDEF typedef PetscErrorCode(SVDConvergenceTestFn)(SVD svd,PetscReal sigma,PetscReal res,PetscReal *errest,void *ctx);
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDConvergenceTestFn(SVD svd,PetscReal sigma,PetscReal res,PetscReal *errest,PetscCtx ctx);
+
+SLEPC_EXTERN PetscErrorCode SVDSetConvergenceTest(SVD,SVDConv);
+SLEPC_EXTERN PetscErrorCode SVDGetConvergenceTest(SVD,SVDConv*);
+SLEPC_EXTERN SVDConvergenceTestFn SVDConvergedAbsolute;
+SLEPC_EXTERN SVDConvergenceTestFn SVDConvergedRelative;
+SLEPC_EXTERN SVDConvergenceTestFn SVDConvergedNorm;
+SLEPC_EXTERN SVDConvergenceTestFn SVDConvergedMaxIt;
+SLEPC_EXTERN PetscErrorCode SVDSetConvergenceTestFunction(SVD,SVDConvergenceTestFn*,PetscCtx,PetscCtxDestroyFn*);
 
 /*S
-  SVDStoppingTestFn - A prototype of an SVD stopping test function that would be passed to SVDSetStoppingTestFunction()
+   SVDStoppingTestFn - A prototype of an `SVD` stopping test function that would
+   be passed to `SVDSetStoppingTestFunction()`.
 
-  Calling Sequence:
-+   svd    - singular value solver context obtained from SVDCreate()
-.   its    - current number of iterations
-.   max_it - maximum number of iterations
-.   nconv  - number of currently converged singular triplets
-.   nsv    - number of requested singular triplets
-.   reason - [output] result of the stopping test
--   ctx    - [optional] user-defined context for private data for the
-             stopping test routine (may be NULL)
+   Calling Sequence:
++  svd    - the singular value solver context
+.  its    - current number of iterations
+.  max_it - maximum number of iterations
+.  nconv  - number of currently converged singular triplets
+.  nsv    - number of requested singular triplets
+.  reason - [output] result of the stopping test
+-  ctx    - optional stopping context, as set by `SVDSetStoppingTestFunction()`
 
-  Level: advanced
+   Note:
+   A positive value of `reason` indicates that the iteration has finished successfully
+   (converged), and a negative value indicates an error condition (diverged). If
+   the iteration needs to be continued, `reason` must be set to `SVD_CONVERGED_ITERATING`
+   (zero).
 
-.seealso: SVDSetStoppingTestFunction()
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDSetStoppingTest()`, `SVDSetStoppingTestFunction()`
 S*/
-PETSC_EXTERN_TYPEDEF typedef PetscErrorCode(SVDStoppingTestFn)(SVD svd,PetscInt its,PetscInt max_it,PetscInt nconv,PetscInt nsv,SVDConvergedReason *reason,void *ctx);
+PETSC_EXTERN_TYPEDEF typedef PetscErrorCode SVDStoppingTestFn(SVD svd,PetscInt its,PetscInt max_it,PetscInt nconv,PetscInt nsv,SVDConvergedReason *reason,PetscCtx ctx);
 
-SLEPC_EXTERN PetscErrorCode SVDSetConvergenceTestFunction(SVD,SVDConvergenceTestFn*,void*,PetscCtxDestroyFn*);
-SLEPC_EXTERN PetscErrorCode SVDSetStoppingTestFunction(SVD,SVDStoppingTestFn*,void*,PetscCtxDestroyFn*);
+SLEPC_EXTERN PetscErrorCode SVDSetStoppingTest(SVD,SVDStop);
+SLEPC_EXTERN PetscErrorCode SVDGetStoppingTest(SVD,SVDStop*);
+SLEPC_EXTERN SVDStoppingTestFn SVDStoppingBasic;
+SLEPC_EXTERN SVDStoppingTestFn SVDStoppingThreshold;
+SLEPC_EXTERN PetscErrorCode SVDSetStoppingTestFunction(SVD,SVDStoppingTestFn*,PetscCtx,PetscCtxDestroyFn*);
 
 /* --------- options specific to particular solvers -------- */
 
@@ -307,17 +601,24 @@ SLEPC_EXTERN PetscErrorCode SVDLanczosSetOneSide(SVD,PetscBool);
 SLEPC_EXTERN PetscErrorCode SVDLanczosGetOneSide(SVD,PetscBool*);
 
 /*E
-    SVDTRLanczosGBidiag - determines the bidiagonalization choice for the
-    TRLanczos GSVD solver
+   SVDTRLanczosGBidiag - The choice of bidiagonalization for the `SVDTRLANCZOS` GSVD solver.
 
-    Level: advanced
+   Values:
++  `SVD_TRLANCZOS_GBIDIAG_SINGLE` - single bidiagonalization ($Q_A$)
+.  `SVD_TRLANCZOS_GBIDIAG_UPPER`  - joint bidiagonalization, both $Q_A$ and $Q_B$ in upper bidiagonal form
+-  `SVD_TRLANCZOS_GBIDIAG_LOWER`  - joint bidiagonalization, $Q_A$ lower bidiagonal, $Q_B$ upper bidiagonal
 
-.seealso: SVDTRLanczosSetGBidiag(), SVDTRLanczosGetGBidiag()
+   Note:
+   The different variants are described in {cite:p}`Alv24`.
+
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDTRLanczosSetGBidiag()`, `SVDTRLanczosGetGBidiag()`
 E*/
 typedef enum {
-  SVD_TRLANCZOS_GBIDIAG_SINGLE, /* single bidiagonalization (Qa) */
-  SVD_TRLANCZOS_GBIDIAG_UPPER,  /* joint bidiagonalization, both Qa and Qb in upper bidiagonal form */
-  SVD_TRLANCZOS_GBIDIAG_LOWER   /* joint bidiagonalization, Qa lower bidiagonal, Qb upper bidiagonal */
+  SVD_TRLANCZOS_GBIDIAG_SINGLE,
+  SVD_TRLANCZOS_GBIDIAG_UPPER,
+  SVD_TRLANCZOS_GBIDIAG_LOWER
 } SVDTRLanczosGBidiag;
 SLEPC_EXTERN const char *SVDTRLanczosGBidiags[];
 
@@ -337,15 +638,18 @@ SLEPC_EXTERN PetscErrorCode SVDTRLanczosSetScale(SVD,PetscReal);
 SLEPC_EXTERN PetscErrorCode SVDTRLanczosGetScale(SVD,PetscReal*);
 
 /*E
-    SVDPRIMMEMethod - determines the SVD method selected in the PRIMME library
+   SVDPRIMMEMethod - The SVD method selected in the PRIMME library.
 
-    Level: advanced
+   Note:
+   See the documentation of PRIMME {cite:p}`Sta10` for a description of the methods.
 
-.seealso: SVDPRIMMESetMethod(), SVDPRIMMEGetMethod()
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDPRIMMESetMethod()`, `SVDPRIMMEGetMethod()`
 E*/
-typedef enum { SVD_PRIMME_HYBRID=1,
-               SVD_PRIMME_NORMALEQUATIONS,
-               SVD_PRIMME_AUGMENTED } SVDPRIMMEMethod;
+typedef enum { SVD_PRIMME_HYBRID          = 1,
+               SVD_PRIMME_NORMALEQUATIONS = 2,
+               SVD_PRIMME_AUGMENTED       = 3 } SVDPRIMMEMethod;
 SLEPC_EXTERN const char *SVDPRIMMEMethods[];
 
 SLEPC_EXTERN PetscErrorCode SVDPRIMMESetBlockSize(SVD,PetscInt);
@@ -354,26 +658,32 @@ SLEPC_EXTERN PetscErrorCode SVDPRIMMESetMethod(SVD,SVDPRIMMEMethod);
 SLEPC_EXTERN PetscErrorCode SVDPRIMMEGetMethod(SVD,SVDPRIMMEMethod*);
 
 /*E
-    SVDKSVDEigenMethod - determines the method to solve the eigenproblem within KSVD
+   SVDKSVDEigenMethod - The method to solve the eigenproblem within the KSVD library.
 
-    Level: advanced
+   Note:
+   See the documentation of KSVD {cite:p}`Suk19` for a description of the methods.
 
-.seealso: SVDKSVDSetEigenMethod(), SVDKSVDGetEigenMethod()
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDKSVDSetEigenMethod()`, `SVDKSVDGetEigenMethod()`
 E*/
-typedef enum { SVD_KSVD_EIGEN_MRRR=1,
-               SVD_KSVD_EIGEN_DC,
-               SVD_KSVD_EIGEN_ELPA } SVDKSVDEigenMethod;
+typedef enum { SVD_KSVD_EIGEN_MRRR = 1,
+               SVD_KSVD_EIGEN_DC   = 2,
+               SVD_KSVD_EIGEN_ELPA = 3 } SVDKSVDEigenMethod;
 SLEPC_EXTERN const char *SVDKSVDEigenMethods[];
 
 /*E
-    SVDKSVDPolarMethod - determines the method to compute the polar decomposition within KSVD
+   SVDKSVDPolarMethod - The method to compute the polar decomposition within the KSVD library.
 
-    Level: advanced
+   Note:
+   See the documentation of KSVD {cite:p}`Suk19` for a description of the methods.
 
-.seealso: SVDKSVDSetPolarMethod(), SVDKSVDGetPolarMethod()
+   Level: advanced
+
+.seealso: [](ch:svd), `SVDKSVDSetPolarMethod()`, `SVDKSVDGetPolarMethod()`
 E*/
-typedef enum { SVD_KSVD_POLAR_QDWH=1,
-               SVD_KSVD_POLAR_ZOLOPD } SVDKSVDPolarMethod;
+typedef enum { SVD_KSVD_POLAR_QDWH   = 1,
+               SVD_KSVD_POLAR_ZOLOPD = 2 } SVDKSVDPolarMethod;
 SLEPC_EXTERN const char *SVDKSVDPolarMethods[];
 
 SLEPC_EXTERN PetscErrorCode SVDKSVDSetEigenMethod(SVD,SVDKSVDEigenMethod);

@@ -26,7 +26,7 @@ typedef struct _MFNOps *MFNOps;
 struct _MFNOps {
   PetscErrorCode (*solve)(MFN,Vec,Vec);
   PetscErrorCode (*setup)(MFN);
-  PetscErrorCode (*setfromoptions)(MFN,PetscOptionItems*);
+  PetscErrorCode (*setfromoptions)(MFN,PetscOptionItems);
   PetscErrorCode (*publishoptions)(MFN);
   PetscErrorCode (*destroy)(MFN);
   PetscErrorCode (*reset)(MFN);
@@ -52,7 +52,7 @@ struct _p_MFN {
   PetscBool      errorifnotconverged;    /* error out if MFNSolve() does not converge */
 
   /*-------------- User-provided functions and contexts -----------------*/
-  PetscErrorCode    (*monitor[MAXMFNMONITORS])(MFN,PetscInt,PetscReal,void*);
+  MFNMonitorFn      *monitor[MAXMFNMONITORS];
   PetscCtxDestroyFn *monitordestroy[MAXMFNMONITORS];
   void              *monitorcontext[MAXMFNMONITORS];
   PetscInt          numbermonitors;

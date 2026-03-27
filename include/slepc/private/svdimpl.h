@@ -28,7 +28,7 @@ struct _SVDOps {
   PetscErrorCode (*solveg)(SVD);
   PetscErrorCode (*solveh)(SVD);
   PetscErrorCode (*setup)(SVD);
-  PetscErrorCode (*setfromoptions)(SVD,PetscOptionItems*);
+  PetscErrorCode (*setfromoptions)(SVD,PetscOptionItems);
   PetscErrorCode (*publishoptions)(SVD);
   PetscErrorCode (*destroy)(SVD);
   PetscErrorCode (*reset)(SVD);
@@ -87,7 +87,7 @@ struct _p_SVD {
   PetscCtxDestroyFn    *stoppingdestroy;
   void                 *convergedctx;
   void                 *stoppingctx;
-  PetscErrorCode       (*monitor[MAXSVDMONITORS])(SVD,PetscInt,PetscInt,PetscReal*,PetscReal*,PetscInt,void*);
+  SVDMonitorFn         *monitor[MAXSVDMONITORS];
   PetscCtxDestroyFn    *monitordestroy[MAXSVDMONITORS];
   void                 *monitorcontext[MAXSVDMONITORS];
   PetscInt             numbermonitors;

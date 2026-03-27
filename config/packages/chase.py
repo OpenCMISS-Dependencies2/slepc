@@ -18,19 +18,19 @@ class Chase(package.Package):
     self.packagetype    = 'cmake'
     self.installable    = True
     self.downloadable   = True
-    self.version        = '1.5.0'
+    self.version        = '1.7.0'
     obj = self.version if hasattr(self,'version') else self.gitcommit
     self.url            = 'https://github.com/ChASE-library/ChASE/archive/'+('v'+obj if hasattr(self,'version') else obj)+'.tar.gz'
     self.archive        = 'ChASE-'+obj+'.tar.gz'
-    self.supportssingle = True
     self.hasheaders     = True
+    self.supportsprecis.append('single')
     self.ProcessArgs(argdb)
 
   def Precondition(self,slepc,petsc):
     pkg = self.packagename.upper()
     if not 'scalapack' in petsc.packages:
       self.log.Exit(pkg+' requires PETSc to be configured with ScaLAPACK')
-    if hasattr(self,'download') and self.download:
+    if getattr(self,'download',False):
       if not hasattr(petsc,'cmake'):
         self.log.Exit(pkg+' requires CMake for building')
       if petsc.maxcxxdialect == '':
@@ -89,7 +89,6 @@ class Chase(package.Package):
 
     self.log.Exit('Unable to link with ChASE library in directories'+' '.join(dirs)+' with libraries and link flags '+' '.join(libs))
 
-
   def DownloadAndInstall(self,slepcconf,slepcvars,slepc,petsc,archdir,prefixdir):
     externdir = slepc.GetExternalPackagesDir(archdir)
     builddir  = self.Download(externdir,slepc.downloaddir)
@@ -133,4 +132,3 @@ class Chase(package.Package):
 
     self.havepackage = True
     self.packageflags = l+' '+f
-

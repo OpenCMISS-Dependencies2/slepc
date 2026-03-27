@@ -20,7 +20,7 @@ ST Object: 1 MPI process
     type: preonly
     maximum iterations=10000, initial guess is zero
     left preconditioning
-    using NONE norm type for convergence test
+    not checking for convergence
   PC Object: (st_) 1 MPI process
     type: icc
       out-of-place factorization
@@ -28,14 +28,13 @@ ST Object: 1 MPI process
       using Manteuffel shift [POSITIVE_DEFINITE]
       matrix ordering: natural
       factor fill ratio given 1., needed 1.
-        Factored matrix follows:
+        Factored matrix:
           Mat Object: (st_) 1 MPI process
             type: seqsbaij
             rows=1225, cols=1225
             package used to perform factorization: petsc
             total: nonzeros=3605, allocated nonzeros=3605
-                block size is 1
-    linear system matrix = precond matrix:
+    linear system matrix, which is also used to construct the preconditioner:
     Mat Object: (st_) 1 MPI process
       type: seqaij
       rows=1225, cols=1225

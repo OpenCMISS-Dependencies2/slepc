@@ -8,7 +8,6 @@
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 
-from __future__ import print_function
 import argdb, os, sys, package
 
 class SLEPc(package.Package):
@@ -28,7 +27,7 @@ class SLEPc(package.Package):
     print('  --with-packages-build-dir=<dir>'.ljust(wd)+': Location to unpack and run the build process for downloaded packages')
     print('\nSLEPc:')
     print('  --prefix=<dir>'.ljust(wd)+': Specify location to install SLEPc (e.g., /usr/local)')
-    print('  --DATAFILESPATH=<dir>'.ljust(wd)+': Location of datafiles (available at https://slepc.upv.es/datafiles)')
+    print('  --DATAFILESPATH=<dir>'.ljust(wd)+': Location of datafiles (available at https://gitlab.com/slepc/datafiles)')
 
   def ProcessArgs(self,argdb):
     self.clean       = argdb.PopBool('with-clean')[0]
@@ -66,6 +65,7 @@ class SLEPc(package.Package):
       self.AddDefine(slepcconf,'VERSION_GIT',slepc.gitrev)
       self.AddDefine(slepcconf,'VERSION_DATE_GIT',slepc.gitdate)
       self.AddDefine(slepcconf,'VERSION_BRANCH_GIT',slepc.branch)
+    slepcvars.write('LIB_NAME_SUFFIX = '+petsc.lib_name_suffix+'\n')
     # Single library installation
     if petsc.singlelib:
       slepcvars.write('SHLIBS = libslepc${LIB_NAME_SUFFIX}\n')
@@ -116,8 +116,8 @@ class SLEPc(package.Package):
 
     # Check whether this is a working copy of the repository
     self.isrepo = False
-    if os.path.exists(os.path.join(self.dir,'src','docs')):
-      self.log.write('This appears to be a repository clone - src/docs exists')
+    if os.path.exists(os.path.join(self.dir,'.mailmap')):
+      self.log.write('This appears to be a repository clone - .mailmap exists')
       self.isrepo = True
       if os.path.exists(os.path.join(self.dir,'.git')):
         self.log.write('.git directory exists')
@@ -255,4 +255,3 @@ class SLEPc(package.Package):
       return ''
     hash += '\n'.join(sorted(chash.splitlines()))
     return hash
-

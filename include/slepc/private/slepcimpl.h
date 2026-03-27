@@ -13,7 +13,7 @@
 #include <slepcsys.h>
 #include <petsc/private/petscimpl.h>
 
-/* SUBMANSEC = sys */
+/* SUBMANSEC = Sys */
 
 SLEPC_INTERN PetscBool SlepcBeganPetsc;
 
@@ -24,19 +24,19 @@ SLEPC_INTERN PetscBool SlepcBeganPetsc;
     SlepcHeaderCreate - Creates a SLEPc object
 
     Input Parameters:
-+   classid - the classid associated with this object
++   classid    - the classid associated with this object
 .   class_name - string name of class; should be static
-.   descr - string containing short description; should be static
-.   mansec - string indicating section in manual pages; should be static
-.   comm - the MPI Communicator
-.   destroy - the destroy routine for this object
--   view - the view routine for this object
+.   descr      - string containing short description; should be static
+.   mansec     - string indicating section in manual pages; should be static
+.   comm       - the MPI Communicator
+.   destroy    - the destroy routine for this object
+-   view       - the view routine for this object
 
     Output Parameter:
 .   h - the newly created object
 
     Note:
-    This is equivalent to PetscHeaderCreate but makes sure that SlepcInitialize
+    This is equivalent to `PetscHeaderCreate()` but makes sure that `SlepcInitialize()`
     has been called.
 
     Level: developer
@@ -47,19 +47,15 @@ M*/
                                   "Must call SlepcInitialize instead of PetscInitialize to use SLEPc classes")) || \
                       PetscHeaderCreate(h,classid,class_name,descr,mansec,comm,destroy,view)))
 
-/* context for monitors of type XXXMonitorConverged */
-struct _n_SlepcConvMon {
-  void     *ctx;
-  PetscInt oldnconv;  /* previous value of nconv */
-};
-
 /* context for structured eigenproblem matrices created via MatCreateXXX */
 struct _n_SlepcMatStruct {
-  PetscInt cookie;    /* identify which structured matrix */
+  PetscInt    cookie;    /* identify which structured matrix */
+  PetscScalar s;         /* in BSE sign of the bottom part of the vector */
 };
 typedef struct _n_SlepcMatStruct* SlepcMatStruct;
 
-#define SLEPC_MAT_STRUCT_BSE 88101
+#define SLEPC_MAT_STRUCT_BSE     88101
+#define SLEPC_MAT_STRUCT_HAMILT  88102
 
 /*
   SlepcCheckMatStruct - Check that a given Mat is a structured matrix of the wanted type.
@@ -129,13 +125,11 @@ static inline PetscErrorCode SlepcViewEigenvector(PetscViewer viewer,Vec xr,Vec 
   PetscCall(PetscSNPrintf(vname+count,sizeof(vname)-count,"%" PetscInt_FMT "_%s",index,pname));
   PetscCall(PetscObjectSetName((PetscObject)xr,vname));
   PetscCall(VecView(xr,viewer));
-#if !defined(PETSC_USE_COMPLEX)
-  vname[count-1] = 'i';
-  PetscCall(PetscObjectSetName((PetscObject)xi,vname));
-  PetscCall(VecView(xi,viewer));
-#else
-  (void)xi;
-#endif
+  if (!PetscDefined(USE_COMPLEX)) {
+    vname[count-1] = 'i';
+    PetscCall(PetscObjectSetName((PetscObject)xi,vname));
+    PetscCall(VecView(xi,viewer));
+  }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 

@@ -14,25 +14,6 @@
 #include <slepc/private/epsimpl.h>   /*I "slepceps.h" I*/
 #include <petscdraw.h>
 
-PetscErrorCode EPSMonitorLGCreate(MPI_Comm comm,const char host[],const char label[],const char metric[],PetscInt l,const char *names[],int x,int y,int m,int n,PetscDrawLG *lgctx)
-{
-  PetscDraw      draw;
-  PetscDrawAxis  axis;
-  PetscDrawLG    lg;
-
-  PetscFunctionBegin;
-  PetscCall(PetscDrawCreate(comm,host,label,x,y,m,n,&draw));
-  PetscCall(PetscDrawSetFromOptions(draw));
-  PetscCall(PetscDrawLGCreate(draw,l,&lg));
-  if (names) PetscCall(PetscDrawLGSetLegend(lg,names));
-  PetscCall(PetscDrawLGSetFromOptions(lg));
-  PetscCall(PetscDrawLGGetAxis(lg,&axis));
-  PetscCall(PetscDrawAxisSetLabels(axis,"Convergence","Iteration",metric));
-  PetscCall(PetscDrawDestroy(&draw));
-  *lgctx = lg;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
 /*
    Runs the user provided monitor routines, if any.
 */
@@ -52,74 +33,78 @@ PetscErrorCode EPSMonitor(EPS eps,PetscInt it,PetscInt nconv,PetscScalar *eigr,P
    Logically Collective
 
    Input Parameters:
-+  eps     - eigensolver context obtained from EPSCreate()
-.  monitor - pointer to function (if this is NULL, it turns off monitoring)
-.  mctx    - [optional] context for private data for the
-             monitor routine (use NULL if no context is desired)
--  monitordestroy - [optional] routine that frees monitor context (may be NULL),
-             see PetscCtxDestroyFn for the calling sequence
-
-   Calling sequence of monitor:
-$  PetscErrorCode monitor(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,void *mctx)
-+  eps    - eigensolver context obtained from EPSCreate()
-.  its    - iteration number
-.  nconv  - number of converged eigenpairs
-.  eigr   - real part of the eigenvalues
-.  eigi   - imaginary part of the eigenvalues
-.  errest - relative error estimates for each eigenpair
-.  nest   - number of error estimates
--  mctx   - optional monitoring context, as set by EPSMonitorSet()
++  eps            - the linear eigensolver context
+.  monitor        - pointer to function (if this is `NULL`, it turns off monitoring),
+                    see `EPSMonitorFn`
+.  ctx            - [optional] context for private data for the monitor routine
+                    (use `NULL` if no context is desired)
+-  monitordestroy - [optional] routine that frees monitor context (may be `NULL`),
+                    see `PetscCtxDestroyFn` for the calling sequence
 
    Options Database Keys:
-+    -eps_monitor        - print only the first error estimate
-.    -eps_monitor_all    - print error estimates at each iteration
-.    -eps_monitor_conv   - print the eigenvalue approximations only when
-      convergence has been reached
-.    -eps_monitor draw::draw_lg - sets line graph monitor for the first unconverged
-      approximate eigenvalue
-.    -eps_monitor_all draw::draw_lg - sets line graph monitor for all unconverged
-      approximate eigenvalues
-.    -eps_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
--    -eps_monitor_cancel - cancels all monitors that have been hardwired into
-      a code by calls to EPSMonitorSet(), but does not cancel those set via
-      the options database.
++  -eps_monitor                    - print only the first error estimate
+.  -eps_monitor_all                - print error estimates at each iteration
+.  -eps_monitor_conv               - print the eigenvalue approximations only when
+                                     convergence has been reached
+.  -eps_monitor draw::draw_lg      - sets line graph monitor for the first unconverged
+                                     approximate eigenvalue
+.  -eps_monitor_all draw::draw_lg  - sets line graph monitor for all unconverged
+                                     approximate eigenvalues
+.  -eps_monitor_conv draw::draw_lg - sets line graph monitor for convergence history
+-  -eps_monitor_cancel             - cancels all monitors that have been hardwired into
+                                     a code by calls to `EPSMonitorSet()`, but does not cancel
+                                     those set via the options database.
 
    Notes:
-   Several different monitoring routines may be set by calling
-   EPSMonitorSet() multiple times; all will be called in the
-   order in which they were set.
+   The options database option `-eps_monitor` and related options are the easiest way
+   to turn on `EPS` iteration monitoring.
+
+   `EPSMonitorRegister()` provides a way to associate an options database key with `EPS`
+   monitor function.
+
+   Several different monitoring routines may be set by calling `EPSMonitorSet()` multiple
+   times; all will be called in the order in which they were set.
+
+   Fortran Note:
+   Only a single monitor function can be set for each `EPS` object.
 
    Level: intermediate
 
-.seealso: EPSMonitorFirst(), EPSMonitorAll(), EPSMonitorCancel()
+.seealso: [](ch:eps), `EPSMonitorFirst()`, `EPSMonitorAll()`, `EPSMonitorConverged()`, `EPSMonitorFirstDrawLG()`, `EPSMonitorAllDrawLG()`, `EPSMonitorConvergedDrawLG()`, `EPSMonitorCancel()`
 @*/
-PetscErrorCode EPSMonitorSet(EPS eps,PetscErrorCode (*monitor)(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,void *mctx),void *mctx,PetscCtxDestroyFn *monitordestroy)
+PetscErrorCode EPSMonitorSet(EPS eps,EPSMonitorFn *monitor,PetscCtx ctx,PetscCtxDestroyFn *monitordestroy)
 {
+  PetscInt  i;
+  PetscBool identical;
+
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
+  for (i=0;i<eps->numbermonitors;i++) {
+    PetscCall(PetscMonitorCompare((PetscErrorCode(*)(void))(PetscVoidFn*)monitor,ctx,monitordestroy,(PetscErrorCode (*)(void))(PetscVoidFn*)eps->monitor[i],eps->monitorcontext[i],eps->monitordestroy[i],&identical));
+    if (identical) PetscFunctionReturn(PETSC_SUCCESS);
+  }
   PetscCheck(eps->numbermonitors<MAXEPSMONITORS,PetscObjectComm((PetscObject)eps),PETSC_ERR_ARG_OUTOFRANGE,"Too many EPS monitors set");
   eps->monitor[eps->numbermonitors]           = monitor;
-  eps->monitorcontext[eps->numbermonitors]    = (void*)mctx;
+  eps->monitorcontext[eps->numbermonitors]    = ctx;
   eps->monitordestroy[eps->numbermonitors++]  = monitordestroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@
-   EPSMonitorCancel - Clears all monitors for an EPS object.
+   EPSMonitorCancel - Clears all monitors for an `EPS` object.
 
    Logically Collective
 
-   Input Parameters:
-.  eps - eigensolver context obtained from EPSCreate()
+   Input Parameter:
+.  eps - the linear eigensolver context
 
    Options Database Key:
-.    -eps_monitor_cancel - Cancels all monitors that have been hardwired
-      into a code by calls to EPSMonitorSet(),
-      but does not cancel those set via the options database.
+.  -eps_monitor_cancel - cancels all monitors that have been hardwired into a code by calls to
+                         `EPSMonitorSet()`, but does not cancel those set via the options database.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`
 @*/
 PetscErrorCode EPSMonitorCancel(EPS eps)
 {
@@ -136,21 +121,21 @@ PetscErrorCode EPSMonitorCancel(EPS eps)
 
 /*@C
    EPSGetMonitorContext - Gets the monitor context, as set by
-   EPSMonitorSet() for the FIRST monitor only.
+   `EPSMonitorSet()` for the FIRST monitor only.
 
    Not Collective
 
    Input Parameter:
-.  eps - eigensolver context obtained from EPSCreate()
+.  eps - the linear eigensolver context
 
    Output Parameter:
 .  ctx - monitor context
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`
 @*/
-PetscErrorCode EPSGetMonitorContext(EPS eps,void *ctx)
+PetscErrorCode EPSGetMonitorContext(EPS eps,PetscCtxRt ctx)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
@@ -180,7 +165,7 @@ static inline PetscErrorCode EPSMonitorPrintEval(EPS eps,PetscViewer viewer,Pets
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -190,13 +175,17 @@ static inline PetscErrorCode EPSMonitorPrintEval(EPS eps,PetscViewer viewer,Pets
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor - activates EPSMonitorFirst()
+.  -eps_monitor - activates `EPSMonitorFirst()`
+
+   Note:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet(), EPSMonitorAll(), EPSMonitorConverged()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorAll()`, `EPSMonitorConverged()`
 @*/
-PetscErrorCode EPSMonitorFirst(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorFirst(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscScalar    er,ei;
   PetscViewer    viewer = vf->viewer;
@@ -228,7 +217,7 @@ PetscErrorCode EPSMonitorFirst(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -238,13 +227,17 @@ PetscErrorCode EPSMonitorFirst(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor_all - activates EPSMonitorAll()
+.  -eps_monitor_all - activates `EPSMonitorAll()`
+
+   Note:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet(), EPSMonitorFirst(), EPSMonitorConverged()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorFirst()`, `EPSMonitorConverged()`
 @*/
-PetscErrorCode EPSMonitorAll(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorAll(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscInt       i;
   PetscScalar    er,ei;
@@ -278,7 +271,7 @@ PetscErrorCode EPSMonitorAll(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *ei
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -288,29 +281,34 @@ PetscErrorCode EPSMonitorAll(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *ei
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor_conv - activates EPSMonitorConverged()
+.  -eps_monitor_conv - activates `EPSMonitorConverged()`
+
+   Notes:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
+
+   Call `EPSMonitorConvergedCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet(), EPSMonitorFirst(), EPSMonitorAll()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorConvergedCreate()`, `EPSMonitorFirst()`, `EPSMonitorAll()`
 @*/
-PetscErrorCode EPSMonitorConverged(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorConverged(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
-  PetscInt       i;
+  PetscInt       i,*oldnconv;
   PetscScalar    er,ei;
   PetscViewer    viewer = vf->viewer;
-  SlepcConvMon   ctx;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  ctx = (SlepcConvMon)vf->data;
+  oldnconv = (PetscInt*)vf->data;
   if (its==1 && ((PetscObject)eps)->prefix) PetscCall(PetscViewerASCIIPrintf(viewer,"  Convergence history for %s solve.\n",((PetscObject)eps)->prefix));
-  if (its==1) ctx->oldnconv = 0;
-  if (ctx->oldnconv!=nconv) {
+  if (its==1) *oldnconv = 0;
+  if (*oldnconv!=nconv) {
     PetscCall(PetscViewerPushFormat(viewer,vf->format));
     PetscCall(PetscViewerASCIIAddTab(viewer,((PetscObject)eps)->tablevel));
-    for (i=ctx->oldnconv;i<nconv;i++) {
+    for (i=*oldnconv;i<nconv;i++) {
       PetscCall(PetscViewerASCIIPrintf(viewer,"%3" PetscInt_FMT " EPS converged value (error) #%" PetscInt_FMT,its,i));
       PetscCall(PetscViewerASCIIUseTabs(viewer,PETSC_FALSE));
       er = eigr[i]; ei = eigi[i];
@@ -321,31 +319,37 @@ PetscErrorCode EPSMonitorConverged(EPS eps,PetscInt its,PetscInt nconv,PetscScal
     }
     PetscCall(PetscViewerASCIISubtractTab(viewer,((PetscObject)eps)->tablevel));
     PetscCall(PetscViewerPopFormat(viewer));
-    ctx->oldnconv = nconv;
+    *oldnconv = nconv;
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode EPSMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
+/*@C
+   EPSMonitorConvergedCreate - Creates the context for the convergence history monitor.
+
+   Collective
+
+   Input Parameters:
++  viewer - the viewer
+.  format - the viewer format
+-  ctx    - an optional user context
+
+   Output Parameter:
+.  vf     - the viewer and format context
+
+   Level: intermediate
+
+.seealso: [](ch:eps), `EPSMonitorSet()`
+@*/
+PetscErrorCode EPSMonitorConvergedCreate(PetscViewer viewer,PetscViewerFormat format,PetscCtx ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscFunctionReturn(PETSC_SUCCESS);
-}
-
-PetscErrorCode EPSMonitorConvergedDestroy(PetscViewerAndFormat **vf)
-{
-  PetscFunctionBegin;
-  if (!*vf) PetscFunctionReturn(PETSC_SUCCESS);
-  PetscCall(PetscFree((*vf)->data));
-  PetscCall(PetscViewerDestroy(&(*vf)->viewer));
-  PetscCall(PetscDrawLGDestroy(&(*vf)->lg));
-  PetscCall(PetscFree(*vf));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -356,7 +360,7 @@ PetscErrorCode EPSMonitorConvergedDestroy(PetscViewerAndFormat **vf)
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -366,23 +370,29 @@ PetscErrorCode EPSMonitorConvergedDestroy(PetscViewerAndFormat **vf)
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor draw::draw_lg - activates EPSMonitorFirstDrawLG()
+.  -eps_monitor draw::draw_lg - activates `EPSMonitorFirstDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
+
+   Call `EPSMonitorFirstDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorFirstDrawLGCreate()`
 @*/
-PetscErrorCode EPSMonitorFirstDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorFirstDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscReal      x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -417,14 +427,14 @@ PetscErrorCode EPSMonitorFirstDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscSc
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`
 @*/
 PetscErrorCode EPSMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(EPSMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"First Error Estimate","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -435,7 +445,7 @@ PetscErrorCode EPSMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -445,24 +455,30 @@ PetscErrorCode EPSMonitorFirstDrawLGCreate(PetscViewer viewer,PetscViewerFormat 
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor_all draw::draw_lg - activates EPSMonitorAllDrawLG()
+.  -eps_monitor_all draw::draw_lg - activates `EPSMonitorAllDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
+
+   Call `EPSMonitorAllDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorAllDrawLGCreate()`
 @*/
-PetscErrorCode EPSMonitorAllDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorAllDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer    viewer = vf->viewer;
-  PetscDrawLG    lg = vf->lg;
+  PetscDrawLG    lg;
   PetscInt       i,n = PetscMin(eps->nev,255);
   PetscReal      *x,*y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,n));
@@ -499,14 +515,14 @@ PetscErrorCode EPSMonitorAllDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScal
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`
 @*/
 PetscErrorCode EPSMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
   (*vf)->data = ctx;
-  PetscCall(EPSMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"All Error Estimates","Log Error Estimate",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -517,7 +533,7 @@ PetscErrorCode EPSMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
    Collective
 
    Input Parameters:
-+  eps    - eigensolver context
++  eps    - the linear eigensolver context
 .  its    - iteration number
 .  nconv  - number of converged eigenpairs so far
 .  eigr   - real part of the eigenvalues
@@ -527,23 +543,29 @@ PetscErrorCode EPSMonitorAllDrawLGCreate(PetscViewer viewer,PetscViewerFormat fo
 -  vf     - viewer and format for monitoring
 
    Options Database Key:
-.  -eps_monitor_conv draw::draw_lg - activates EPSMonitorConvergedDrawLG()
+.  -eps_monitor_conv draw::draw_lg - activates `EPSMonitorConvergedDrawLG()`
+
+   Notes:
+   This is not called directly by users, rather one calls `EPSMonitorSet()`, with this
+   function as an argument, to cause the monitor to be used during the `EPS` solve.
+
+   Call `EPSMonitorConvergedDrawLGCreate()` to create the context used with this monitor.
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`, `EPSMonitorConvergedDrawLGCreate()`
 @*/
-PetscErrorCode EPSMonitorConvergedDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar *eigr,PetscScalar *eigi,PetscReal *errest,PetscInt nest,PetscViewerAndFormat *vf)
+PetscErrorCode EPSMonitorConvergedDrawLG(EPS eps,PetscInt its,PetscInt nconv,PetscScalar eigr[],PetscScalar eigi[],PetscReal errest[],PetscInt nest,PetscViewerAndFormat *vf)
 {
   PetscViewer      viewer = vf->viewer;
-  PetscDrawLG      lg = vf->lg;
+  PetscDrawLG      lg;
   PetscReal        x,y;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(eps,EPS_CLASSID,1);
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,8);
-  PetscValidHeaderSpecific(lg,PETSC_DRAWLG_CLASSID,8);
   PetscCall(PetscViewerPushFormat(viewer,vf->format));
+  PetscCall(PetscViewerDrawGetDrawLG(viewer,0,&lg));
   if (its==1) {
     PetscCall(PetscDrawLGReset(lg));
     PetscCall(PetscDrawLGSetDimension(lg,1));
@@ -575,17 +597,17 @@ PetscErrorCode EPSMonitorConvergedDrawLG(EPS eps,PetscInt its,PetscInt nconv,Pet
 
    Level: intermediate
 
-.seealso: EPSMonitorSet()
+.seealso: [](ch:eps), `EPSMonitorSet()`
 @*/
 PetscErrorCode EPSMonitorConvergedDrawLGCreate(PetscViewer viewer,PetscViewerFormat format,void *ctx,PetscViewerAndFormat **vf)
 {
-  SlepcConvMon   mctx;
+  PetscInt *oldnconv;
 
   PetscFunctionBegin;
   PetscCall(PetscViewerAndFormatCreate(viewer,format,vf));
-  PetscCall(PetscNew(&mctx));
-  mctx->ctx = ctx;
-  (*vf)->data = (void*)mctx;
-  PetscCall(EPSMonitorLGCreate(PetscObjectComm((PetscObject)viewer),NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300,&(*vf)->lg));
+  PetscCall(PetscNew(&oldnconv));
+  (*vf)->data = (void*)oldnconv;
+  (*vf)->data_destroy = PetscCtxDestroyDefault;
+  PetscCall(PetscViewerMonitorLGSetUp(viewer,NULL,"Convergence History","Number Converged",1,NULL,PETSC_DECIDE,PETSC_DECIDE,400,300));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

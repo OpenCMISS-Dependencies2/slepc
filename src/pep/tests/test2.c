@@ -19,8 +19,8 @@
        April 2000.
 */
 
-static char help[] = "Test the solution of a PEP from a finite element model of "
-  "damped mass-spring system (problem from NLEVP collection).\n\n"
+static char help[] = "Test the solution of a PEP from a finite element model of damped mass-spring system.\n\n"
+  "Problem from NLEVP collection.\n"
   "The command line options are:\n"
   "  -n <n> ... number of grid subdivisions.\n"
   "  -mu <value> ... mass (default 1).\n"
@@ -217,10 +217,11 @@ int main(int argc,char **argv)
          args: -pep_type linear -pep_linear_explicitmatrix -pep_linear_linearization 0,1
       test:
          suffix: 2_linear_explicit_her
-         args: -pep_type linear -pep_linear_explicitmatrix -pep_hermitian -pep_linear_linearization 0,1
+         args: -pep_type linear -pep_linear_explicitmatrix -pep_hermitian -pep_linear_linearization {{0,1 1,0 .3,.7}}
       test:
          suffix: 2_stoar
          args: -pep_type stoar -pep_hermitian
+         requires: !single
       test:
          suffix: 2_jd
          args: -pep_type jd -st_type precond -pep_max_it 200 -pep_ncv 24

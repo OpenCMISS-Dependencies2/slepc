@@ -12,17 +12,18 @@
 #include <slepcblaslapack.h>
 
 typedef struct {
-  PetscInt       nf;                 /* number of functions in f[] */
-  FN             f[DS_NUM_EXTRA];    /* functions defining the nonlinear operator */
-  PetscInt       max_mid;            /* maximum minimality index */
-  PetscInt       nnod;               /* number of nodes for quadrature rules */
-  PetscInt       spls;               /* number of sampling columns for quadrature rules */
-  PetscInt       Nit;                /* number of refinement iterations */
-  PetscReal      rtol;               /* tolerance of Newton refinement */
-  RG             rg;                 /* region for contour integral */
-  PetscLayout    map;                /* used to distribute work among MPI processes */
-  void           *computematrixctx;
-  DSNEPMatrixFunctionFn *computematrix;
+  PetscInt              nf;                     /* number of functions in f[] */
+  FN                    f[DS_NUM_EXTRA];        /* functions defining the nonlinear operator */
+  PetscInt              max_mid;                /* maximum minimality index */
+  PetscInt              nnod;                   /* number of nodes for quadrature rules */
+  PetscInt              spls;                   /* number of sampling columns for quadrature rules */
+  PetscInt              Nit;                    /* number of refinement iterations */
+  PetscReal             rtol;                   /* tolerance of Newton refinement */
+  RG                    rg;                     /* region for contour integral */
+  PetscLayout           map;                    /* used to distribute work among MPI processes */
+  DSNEPMatrixFunctionFn *computematrix;         /* user-provided compute matrix function */
+  void                  *computematrixctx;      /* context for the compute matrix function */
+  PetscCtxDestroyFn     *computematrixdestroy;  /* context destroy function */
 } DS_NEP;
 
 /*
@@ -494,7 +495,7 @@ PetscErrorCode DSSolve_NEP_Contour(DS ds,PetscScalar *wr,PetscScalar *wi)
   for (j=0;j<rk;j++) Z[j+j*rk_] = sigma[j];
   PetscCallBLAS("LAPACK" LAPGEEV,LAPACKggevalt_("N","V",&rk_,Q,&rk_,Z,&rk_,alpha,beta,NULL,&ld,V,&rk_,work,&lwork,rwork,&info));
   SlepcCheckLapackInfo(LAPGEEV,info);
-  for (i=0;i<rk;i++) wr[i] = (center+radius*alpha[i]/beta[i])*rgscale;
+  for (i=0;i<rk;i++) wr[i] = (center+alpha[i]*radius/beta[i])*rgscale;
   PetscCall(PetscMalloc1(rk,&inside));
   PetscCall(RGCheckInside(ctx->rg,rk,wr,wi,inside));
   k=0;
@@ -606,15 +607,15 @@ static PetscErrorCode DSNEPSetFN_NEP(DS ds,PetscInt n,FN fn[])
 
    Notes:
    The nonlinear eigenproblem is defined in terms of the split nonlinear
-   operator T(lambda) = sum_i A_i*f_i(lambda).
+   operator $T(\lambda) = \sum_i E_i f_i(\lambda)$.
 
-   This function must be called before DSAllocate(). Then DSAllocate()
-   will allocate an extra matrix A_i per each function, that can be
+   This function must be called before `DSAllocate()`. Then `DSAllocate()`
+   will allocate an extra matrix $E_i$ per each function, that can be
    filled in the usual way.
 
    Level: advanced
 
-.seealso: DSNEPGetFN(), DSAllocate()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetFN()`, `DSAllocate()`
 @*/
 PetscErrorCode DSNEPSetFN(DS ds,PetscInt n,FN fn[])
 {
@@ -643,7 +644,7 @@ static PetscErrorCode DSNEPGetFN_NEP(DS ds,PetscInt k,FN *fn)
 }
 
 /*@
-   DSNEPGetFN - Gets the functions associated with the nonlinear DS.
+   DSNEPGetFN - Gets the functions associated with the nonlinear `DS`.
 
    Not Collective
 
@@ -656,7 +657,7 @@ static PetscErrorCode DSNEPGetFN_NEP(DS ds,PetscInt k,FN *fn)
 
    Level: advanced
 
-.seealso: DSNEPSetFN()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetFN()`
 @*/
 PetscErrorCode DSNEPGetFN(DS ds,PetscInt k,FN *fn)
 {
@@ -678,19 +679,19 @@ static PetscErrorCode DSNEPGetNumFN_NEP(DS ds,PetscInt *n)
 
 /*@
    DSNEPGetNumFN - Returns the number of functions stored internally by
-   the DS.
+   the `DS`.
 
    Not Collective
 
    Input Parameter:
 .  ds - the direct solver context
 
-   Output Parameters:
-.  n - the number of functions passed in DSNEPSetFN()
+   Output Parameter:
+.  n - the number of functions passed in `DSNEPSetFN()`
 
    Level: advanced
 
-.seealso: DSNEPSetFN()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetFN()`
 @*/
 PetscErrorCode DSNEPGetNumFN(DS ds,PetscInt *n)
 {
@@ -716,7 +717,7 @@ static PetscErrorCode DSNEPSetMinimality_NEP(DS ds,PetscInt n)
 
 /*@
    DSNEPSetMinimality - Sets the maximum minimality index used internally by
-   the DSNEP.
+   the `DSNEP`.
 
    Logically Collective
 
@@ -725,17 +726,17 @@ static PetscErrorCode DSNEPSetMinimality_NEP(DS ds,PetscInt n)
 -  n  - the maximum minimality index
 
    Options Database Key:
-.  -ds_nep_minimality <n> - sets the maximum minimality index
+.  -ds_nep_minimality n - sets the maximum minimality index
 
    Notes:
    The maximum minimality index is used only in the contour integral method,
-   and is related to the highest momemts used in the method. The default
-   value is 1, an larger value might give better accuracy in some cases, but
+   and is related to the highest moments used in the method. The default
+   value is 1, a larger value might give better accuracy in some cases, but
    at a higher cost.
 
    Level: advanced
 
-.seealso: DSNEPGetMinimality()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetMinimality()`
 @*/
 PetscErrorCode DSNEPSetMinimality(DS ds,PetscInt n)
 {
@@ -757,19 +758,19 @@ static PetscErrorCode DSNEPGetMinimality_NEP(DS ds,PetscInt *n)
 
 /*@
    DSNEPGetMinimality - Returns the maximum minimality index used internally by
-   the DSNEP.
+   the `DSNEP`.
 
    Not Collective
 
    Input Parameter:
 .  ds - the direct solver context
 
-   Output Parameters:
-.  n - the maximum minimality index passed in DSNEPSetMinimality()
+   Output Parameter:
+.  n - the maximum minimality index passed in `DSNEPSetMinimality()`
 
    Level: advanced
 
-.seealso: DSNEPSetMinimality()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetMinimality()`
 @*/
 PetscErrorCode DSNEPGetMinimality(DS ds,PetscInt *n)
 {
@@ -802,7 +803,7 @@ static PetscErrorCode DSNEPSetRefine_NEP(DS ds,PetscReal tol,PetscInt its)
 
 /*@
    DSNEPSetRefine - Sets the tolerance and the number of iterations of Newton iterative
-   refinement for eigenpairs.
+   refinement for eigenpairs when solving a `DSNEP`.
 
    Logically Collective
 
@@ -811,21 +812,21 @@ static PetscErrorCode DSNEPSetRefine_NEP(DS ds,PetscReal tol,PetscInt its)
 .  tol - the tolerance
 -  its - the number of iterations
 
-   Options Database Key:
-+  -ds_nep_refine_tol <tol> - sets the tolerance
--  -ds_nep_refine_its <its> - sets the number of Newton iterations
+   Options Database Keys:
++  -ds_nep_refine_tol tol - sets the tolerance
+-  -ds_nep_refine_its its - sets the number of Newton iterations
 
    Notes:
    Iterative refinement of eigenpairs is currently used only in the contour
    integral method.
 
-   Use PETSC_CURRENT to retain the current value of any of the parameters.
-   Use PETSC_DETERMINE for either argument to assign a default value computed
+   Use `PETSC_CURRENT` to retain the current value of any of the parameters.
+   Use `PETSC_DETERMINE` for either argument to assign a default value computed
    internally.
 
    Level: advanced
 
-.seealso: DSNEPGetRefine()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetRefine()`
 @*/
 PetscErrorCode DSNEPSetRefine(DS ds,PetscReal tol,PetscInt its)
 {
@@ -862,7 +863,7 @@ static PetscErrorCode DSNEPGetRefine_NEP(DS ds,PetscReal *tol,PetscInt *its)
 
    Level: advanced
 
-.seealso: DSNEPSetRefine()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetRefine()`
 @*/
 PetscErrorCode DSNEPGetRefine(DS ds,PetscReal *tol,PetscInt *its)
 {
@@ -888,7 +889,7 @@ static PetscErrorCode DSNEPSetIntegrationPoints_NEP(DS ds,PetscInt ip)
 
 /*@
    DSNEPSetIntegrationPoints - Sets the number of integration points to be
-   used in the contour integral method.
+   used in the contour integral method when solving a `DSNEP`.
 
    Logically Collective
 
@@ -897,14 +898,14 @@ static PetscErrorCode DSNEPSetIntegrationPoints_NEP(DS ds,PetscInt ip)
 -  ip - the number of integration points
 
    Options Database Key:
-.  -ds_nep_integration_points <ip> - sets the number of integration points
+.  -ds_nep_integration_points ip - sets the number of integration points
 
    Notes:
    This parameter is relevant only in the contour integral method.
 
    Level: advanced
 
-.seealso: DSNEPGetIntegrationPoints()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetIntegrationPoints()`
 @*/
 PetscErrorCode DSNEPSetIntegrationPoints(DS ds,PetscInt ip)
 {
@@ -933,12 +934,12 @@ static PetscErrorCode DSNEPGetIntegrationPoints_NEP(DS ds,PetscInt *ip)
    Input Parameter:
 .  ds - the direct solver context
 
-   Output Parameters:
+   Output Parameter:
 .  ip - the number of integration points
 
    Level: advanced
 
-.seealso: DSNEPSetIntegrationPoints()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetIntegrationPoints()`
 @*/
 PetscErrorCode DSNEPGetIntegrationPoints(DS ds,PetscInt *ip)
 {
@@ -965,23 +966,23 @@ static PetscErrorCode DSNEPSetSamplingSize_NEP(DS ds,PetscInt p)
 
 /*@
    DSNEPSetSamplingSize - Sets the number of sampling columns to be
-   used in the contour integral method.
+   used in the contour integral method when solving a `DSNEP`.
 
    Logically Collective
 
    Input Parameters:
 +  ds - the direct solver context
--  p - the number of columns for the sampling matrix
+-  p  - the number of columns for the sampling matrix
 
    Options Database Key:
-.  -ds_nep_sampling_size <p> - sets the number of sampling columns
+.  -ds_nep_sampling_size p - set the number of sampling columns
 
-   Notes:
+   Note:
    This parameter is relevant only in the contour integral method.
 
    Level: advanced
 
-.seealso: DSNEPGetSamplingSize()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetSamplingSize()`
 @*/
 PetscErrorCode DSNEPSetSamplingSize(DS ds,PetscInt p)
 {
@@ -1010,12 +1011,12 @@ static PetscErrorCode DSNEPGetSamplingSize_NEP(DS ds,PetscInt *p)
    Input Parameter:
 .  ds - the direct solver context
 
-   Output Parameters:
+   Output Parameter:
 .  p -  the number of columns for the sampling matrix
 
    Level: advanced
 
-.seealso: DSNEPSetSamplingSize()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetSamplingSize()`
 @*/
 PetscErrorCode DSNEPGetSamplingSize(DS ds,PetscInt *p)
 {
@@ -1026,56 +1027,61 @@ PetscErrorCode DSNEPGetSamplingSize(DS ds,PetscInt *p)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode DSNEPSetComputeMatrixFunction_NEP(DS ds,DSNEPMatrixFunctionFn *fun,void *ctx)
+static PetscErrorCode DSNEPSetComputeMatrixFunction_NEP(DS ds,DSNEPMatrixFunctionFn *fun,PetscCtx ctx,PetscCtxDestroyFn *destroy)
 {
   DS_NEP *dsctx = (DS_NEP*)ds->data;
 
   PetscFunctionBegin;
-  dsctx->computematrix    = fun;
-  dsctx->computematrixctx = ctx;
+  if (dsctx->computematrixdestroy) PetscCall((*dsctx->computematrixdestroy)(&dsctx->computematrixctx));
+  dsctx->computematrix        = fun;
+  dsctx->computematrixctx     = ctx;
+  dsctx->computematrixdestroy = destroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@C
    DSNEPSetComputeMatrixFunction - Sets a user-provided subroutine to compute
-   the matrices T(lambda) or T'(lambda).
+   the matrices $T(\lambda)$ or $T'(\lambda)$.
 
    Logically Collective
 
    Input Parameters:
-+  ds  - the direct solver context
-.  fun - matrix function evaluation routine, see DSNEPMatrixFunctionFn for the calling sequence
--  ctx - a context pointer (the last parameter to the user function)
++  ds      - the direct solver context
+.  fun     - matrix function evaluation routine, see `DSNEPMatrixFunctionFn` for the calling sequence
+.  ctx     - a context pointer (the last parameter to the user function)
+-  destroy - a routine for destroying the context (may be `NULL`), see `PetscCtxDestroyFn`
+             for the calling sequence
 
    Note:
-   The result is computed as T(lambda) = sum_i E_i*f_i(lambda), and similarly
-   for the derivative.
+   The result is computed as $T(\lambda) = \sum_i E_i f_i(\lambda)$, and similarly
+   for the derivative, where $E_i$ are the extra matrices, see `DSMatType`.
 
    Level: developer
 
-.seealso: DSNEPGetComputeMatrixFunction()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetComputeMatrixFunction()`
 @*/
-PetscErrorCode DSNEPSetComputeMatrixFunction(DS ds,DSNEPMatrixFunctionFn *fun,void *ctx)
+PetscErrorCode DSNEPSetComputeMatrixFunction(DS ds,DSNEPMatrixFunctionFn *fun,PetscCtx ctx,PetscCtxDestroyFn *destroy)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ds,DS_CLASSID,1);
-  PetscTryMethod(ds,"DSNEPSetComputeMatrixFunction_C",(DS,DSNEPMatrixFunctionFn*,void*),(ds,fun,ctx));
+  PetscTryMethod(ds,"DSNEPSetComputeMatrixFunction_C",(DS,DSNEPMatrixFunctionFn*,PetscCtx,PetscCtxDestroyFn*),(ds,fun,ctx,destroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode DSNEPGetComputeMatrixFunction_NEP(DS ds,DSNEPMatrixFunctionFn **fun,void **ctx)
+static PetscErrorCode DSNEPGetComputeMatrixFunction_NEP(DS ds,DSNEPMatrixFunctionFn **fun,PetscCtxRt ctx,PetscCtxDestroyFn **destroy)
 {
   DS_NEP *dsctx = (DS_NEP*)ds->data;
 
   PetscFunctionBegin;
   if (fun) *fun = dsctx->computematrix;
-  if (ctx) *ctx = dsctx->computematrixctx;
+  if (ctx) *(void**)ctx = dsctx->computematrixctx;
+  if (destroy) *destroy = dsctx->computematrixdestroy;
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 /*@C
    DSNEPGetComputeMatrixFunction - Returns the user-provided callback function
-   set in DSNEPSetComputeMatrixFunction().
+   set in `DSNEPSetComputeMatrixFunction()`.
 
    Not Collective
 
@@ -1083,18 +1089,19 @@ static PetscErrorCode DSNEPGetComputeMatrixFunction_NEP(DS ds,DSNEPMatrixFunctio
 .  ds  - the direct solver context
 
    Output Parameters:
-+  fun - the pointer to the user function
--  ctx - the context pointer
++  fun     - the pointer to the user function
+.  ctx     - the context pointer
+-  destroy - a routine for destroying the context (may be `NULL`)
 
    Level: developer
 
-.seealso: DSNEPSetComputeMatrixFunction()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetComputeMatrixFunction()`
 @*/
-PetscErrorCode DSNEPGetComputeMatrixFunction(DS ds,DSNEPMatrixFunctionFn **fun,void **ctx)
+PetscErrorCode DSNEPGetComputeMatrixFunction(DS ds,DSNEPMatrixFunctionFn **fun,PetscCtxRt ctx,PetscCtxDestroyFn **destroy)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ds,DS_CLASSID,1);
-  PetscUseMethod(ds,"DSNEPGetComputeMatrixFunction_C",(DS,DSNEPMatrixFunctionFn**,void**),(ds,fun,ctx));
+  PetscUseMethod(ds,"DSNEPGetComputeMatrixFunction_C",(DS,DSNEPMatrixFunctionFn**,PetscCtxRt,PetscCtxDestroyFn**),(ds,fun,ctx,destroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
@@ -1110,7 +1117,7 @@ static PetscErrorCode DSNEPSetRG_NEP(DS ds,RG rg)
 }
 
 /*@
-   DSNEPSetRG - Associates a region object to the DSNEP solver.
+   DSNEPSetRG - Associates a region object to the `DSNEP` solver.
 
    Collective
 
@@ -1124,7 +1131,7 @@ static PetscErrorCode DSNEPSetRG_NEP(DS ds,RG rg)
 
    Level: developer
 
-.seealso: DSNEPGetRG()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPGetRG()`
 @*/
 PetscErrorCode DSNEPSetRG(DS ds,RG rg)
 {
@@ -1155,7 +1162,7 @@ static PetscErrorCode DSNEPGetRG_NEP(DS ds,RG *rg)
 }
 
 /*@
-   DSNEPGetRG - Obtain the region object associated to the DSNEP solver.
+   DSNEPGetRG - Obtain the region object associated to the `DSNEP` solver.
 
    Collective
 
@@ -1167,7 +1174,7 @@ static PetscErrorCode DSNEPGetRG_NEP(DS ds,RG *rg)
 
    Level: developer
 
-.seealso: DSNEPSetRG()
+.seealso: [](sec:ds), `DSNEP`, `DSNEPSetRG()`
 @*/
 PetscErrorCode DSNEPGetRG(DS ds,RG *rg)
 {
@@ -1178,7 +1185,7 @@ PetscErrorCode DSNEPGetRG(DS ds,RG *rg)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-static PetscErrorCode DSSetFromOptions_NEP(DS ds,PetscOptionItems *PetscOptionsObject)
+static PetscErrorCode DSSetFromOptions_NEP(DS ds,PetscOptionItems PetscOptionsObject)
 {
   PetscInt       k;
   PetscBool      flg;
@@ -1226,6 +1233,7 @@ static PetscErrorCode DSDestroy_NEP(DS ds)
   for (i=0;i<ctx->nf;i++) PetscCall(FNDestroy(&ctx->f[i]));
   PetscCall(RGDestroy(&ctx->rg));
   PetscCall(PetscLayoutDestroy(&ctx->map));
+  if (ctx->computematrixdestroy) PetscCall((*ctx->computematrixdestroy)(&ctx->computematrixctx));
   PetscCall(PetscFree(ds->data));
   PetscCall(PetscObjectComposeFunction((PetscObject)ds,"DSNEPSetFN_C",NULL));
   PetscCall(PetscObjectComposeFunction((PetscObject)ds,"DSNEPGetFN_C",NULL));
@@ -1260,34 +1268,34 @@ static PetscErrorCode DSMatGetSize_NEP(DS ds,DSMatType t,PetscInt *rows,PetscInt
 /*MC
    DSNEP - Dense Nonlinear Eigenvalue Problem.
 
-   Level: beginner
-
    Notes:
-   The problem is expressed as T(lambda)*x = 0, where T(lambda) is a
-   parameter-dependent matrix written as T(lambda) = sum_i E_i*f_i(lambda).
-   The eigenvalues lambda are the arguments returned by DSSolve()..
+   The problem is expressed as $T(\lambda)x = 0$, where $T(\lambda)$ is a
+   parameter-dependent matrix written as $T(\lambda) = \sum_i E_i f_i(\lambda)$.
+   The eigenvalues $\lambda$ are the arguments returned by `DSSolve()`.
 
-   The coefficient matrices E_i are the extra matrices of the DS, and
-   the scalar functions f_i are passed via DSNEPSetFN(). Optionally, a
-   callback function to fill the E_i matrices can be set with
-   DSNEPSetComputeMatrixFunction().
+   The coefficient matrices $E_i$ are the extra matrices of the `DS`, and
+   the scalar functions $f_i$ are passed via `DSNEPSetFN()`. Optionally, a
+   callback function to fill the $E_i$ matrices can be set with
+   `DSNEPSetComputeMatrixFunction()`.
 
    Used DS matrices:
-+  DS_MAT_Ex - coefficient matrices of the split form of T(lambda)
-.  DS_MAT_X  - eigenvectors
-.  DS_MAT_A  - (workspace) T(lambda) evaluated at a given lambda (SLP only)
-.  DS_MAT_B  - (workspace) T'(lambda) evaluated at a given lambda (SLP only)
-.  DS_MAT_Q  - (workspace) left Hankel matrix (contour only)
-.  DS_MAT_Z  - (workspace) right Hankel matrix (contour only)
-.  DS_MAT_U  - (workspace) left singular vectors (contour only)
-.  DS_MAT_V  - (workspace) right singular vectors (contour only)
--  DS_MAT_W  - (workspace) auxiliary matrix of size nxn
++  `DS_MAT_E0` to `DS_MAT_E9` - coefficient matrices of the split form of $T(\lambda)$
+.  `DS_MAT_X`  - eigenvectors
+.  `DS_MAT_A`  - (workspace) $T(\lambda)$ evaluated at a given $\lambda$ (SLP only)
+.  `DS_MAT_B`  - (workspace) $T'(\lambda)$ evaluated at a given $\lambda$ (SLP only)
+.  `DS_MAT_Q`  - (workspace) left Hankel matrix (contour only)
+.  `DS_MAT_Z`  - (workspace) right Hankel matrix (contour only)
+.  `DS_MAT_U`  - (workspace) left singular vectors (contour only)
+.  `DS_MAT_V`  - (workspace) right singular vectors (contour only)
+-  `DS_MAT_W`  - (workspace) auxiliary matrix of size $n\times n$
 
    Implemented methods:
 +  0 - Successive Linear Problems (SLP), computes just one eigenpair
 -  1 - Contour integral, computes all eigenvalues inside a region
 
-.seealso: DSCreate(), DSSetType(), DSType, DSNEPSetFN(), DSNEPSetComputeMatrixFunction()
+   Level: beginner
+
+.seealso: [](sec:ds), `DSCreate()`, `DSSetType()`, `DSType`, `DSNEPSetFN()`, `DSNEPSetComputeMatrixFunction()`
 M*/
 SLEPC_EXTERN PetscErrorCode DSCreate_NEP(DS ds)
 {

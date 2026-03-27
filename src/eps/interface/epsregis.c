@@ -25,9 +25,6 @@ SLEPC_EXTERN PetscErrorCode EPSCreate_LAPACK(EPS);
 #if defined(SLEPC_HAVE_ARPACK)
 SLEPC_EXTERN PetscErrorCode EPSCreate_ARPACK(EPS);
 #endif
-#if defined(SLEPC_HAVE_TRLAN)
-SLEPC_EXTERN PetscErrorCode EPSCreate_TRLAN(EPS);
-#endif
 #if defined(SLEPC_HAVE_BLOPEX)
 SLEPC_EXTERN PetscErrorCode EPSCreate_BLOPEX(EPS);
 #endif
@@ -54,13 +51,13 @@ SLEPC_EXTERN PetscErrorCode EPSCreate_ChASE(EPS);
 #endif
 
 /*@C
-  EPSRegisterAll - Registers all the eigenvalue solvers in the EPS package.
+  EPSRegisterAll - Registers all the eigenvalue solvers in the `EPS` package.
 
   Not Collective
 
   Level: advanced
 
-.seealso: EPSRegister()
+.seealso: [](ch:eps), `EPSRegister()`
 @*/
 PetscErrorCode EPSRegisterAll(void)
 {
@@ -81,9 +78,6 @@ PetscErrorCode EPSRegisterAll(void)
   PetscCall(EPSRegister(EPSLAPACK,EPSCreate_LAPACK));
 #if defined(SLEPC_HAVE_ARPACK)
   PetscCall(EPSRegister(EPSARPACK,EPSCreate_ARPACK));
-#endif
-#if defined(SLEPC_HAVE_TRLAN)
-  PetscCall(EPSRegister(EPSTRLAN,EPSCreate_TRLAN));
 #endif
 #if defined(SLEPC_HAVE_BLOPEX)
   PetscCall(EPSRegister(EPSBLOPEX,EPSCreate_BLOPEX));
@@ -113,13 +107,13 @@ PetscErrorCode EPSRegisterAll(void)
 }
 
 /*@C
-  EPSMonitorRegisterAll - Registers all the monitors in the EPS package.
+  EPSMonitorRegisterAll - Registers all the monitors in the `EPS` package.
 
   Not Collective
 
   Level: advanced
 
-.seealso: EPSMonitorRegister()
+.seealso: [](ch:eps), `EPSMonitorRegister()`
 @*/
 PetscErrorCode EPSMonitorRegisterAll(void)
 {
@@ -131,7 +125,7 @@ PetscErrorCode EPSMonitorRegisterAll(void)
   PetscCall(EPSMonitorRegister("first_approximation",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,EPSMonitorFirstDrawLG,EPSMonitorFirstDrawLGCreate,NULL));
   PetscCall(EPSMonitorRegister("all_approximations",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,EPSMonitorAll,NULL,NULL));
   PetscCall(EPSMonitorRegister("all_approximations",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,EPSMonitorAllDrawLG,EPSMonitorAllDrawLGCreate,NULL));
-  PetscCall(EPSMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,EPSMonitorConverged,EPSMonitorConvergedCreate,EPSMonitorConvergedDestroy));
-  PetscCall(EPSMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,EPSMonitorConvergedDrawLG,EPSMonitorConvergedDrawLGCreate,EPSMonitorConvergedDestroy));
+  PetscCall(EPSMonitorRegister("convergence_history",PETSCVIEWERASCII,PETSC_VIEWER_DEFAULT,EPSMonitorConverged,EPSMonitorConvergedCreate,PetscViewerAndFormatDestroy));
+  PetscCall(EPSMonitorRegister("convergence_history",PETSCVIEWERDRAW,PETSC_VIEWER_DRAW_LG,EPSMonitorConvergedDrawLG,EPSMonitorConvergedDrawLGCreate,PetscViewerAndFormatDestroy));
   PetscFunctionReturn(PETSC_SUCCESS);
 }

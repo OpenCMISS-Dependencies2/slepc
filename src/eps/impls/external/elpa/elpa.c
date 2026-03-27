@@ -96,7 +96,7 @@ static PetscErrorCode EPSSolve_ELPA(EPS eps)
   PetscCall(MatDuplicate(A,MAT_DO_NOT_COPY_VALUES,&Q));
   q = (Mat_ScaLAPACK*)Q->data;
 
-  PetscCallELPARET(elpa_init,20200417);    /* 20171201 */
+  PetscCallELPARET(elpa_init,20250131);
   PetscCallELPANOARG(handle = elpa_allocate);
 
   /* set parameters of the matrix and its MPI distribution */
@@ -111,9 +111,9 @@ static PetscErrorCode EPSSolve_ELPA(EPS eps)
   if (B) PetscCallELPA(elpa_set,handle,"blacs_context",a->grid->ictxt);
 
   /* setup and set tunable run-time options */
-  PetscCallELPARET(elpa_setup,handle);
   PetscCallELPA(elpa_set,handle,"solver",ELPA_SOLVER_2STAGE);
   /* PetscCallELPA(elpa_print_settings,handle); */
+  PetscCallELPARET(elpa_setup,handle);
 
   /* solve the eigenvalue problem */
   if (B) {
@@ -158,6 +158,23 @@ static PetscErrorCode EPSReset_ELPA(EPS eps)
   PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+/*MC
+   EPSELPA - EPSELPA = "elpa" - A wrapper to ELPA {cite:p}`Auc11`.
+
+   Notes:
+   Only available for Hermitian problems.
+
+   ELPA is a direct eigensolver, that is, the full spectrum is computed.
+   It uses ScaLAPACK matrix distribution, and hence this solver also
+   involves redistributing the matrices from PETSc storage to ScaLAPACK
+   distribution, and vice versa (this is done automatically by SLEPc).
+   Alternatively, the user may create the problem matrices already with
+   type `MATSCALAPACK`.
+
+   Level: beginner
+
+.seealso: [](ch:eps), `EPS`, `EPSType`, `EPSSetType()`
+M*/
 SLEPC_EXTERN PetscErrorCode EPSCreate_ELPA(EPS eps)
 {
   EPS_ELPA       *ctx;

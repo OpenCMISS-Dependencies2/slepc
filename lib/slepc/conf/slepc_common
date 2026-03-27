@@ -22,5 +22,3 @@ all_dummy:
 
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_variables
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_rules
-include ${SLEPC_DIR}/lib/slepc/conf/slepc_rules_doc.mk
-
